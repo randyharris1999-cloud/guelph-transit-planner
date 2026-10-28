@@ -28,27 +28,6 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 
 Links can be shared: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
 
-## Publish it on GitHub Pages
-
-1. On GitHub, create a new repository named **guelph-transit-planner** under `randyharris1999-cloud`.
-2. Upload everything in this folder (Add file → Upload files, or `git push`). Keep the folder structure.
-3. In the repository: Settings → Pages → Build and deployment → Source: *Deploy from a branch*, Branch: `main`, folder `/ (root)`. Save.
-4. After a minute or two it's live at `https://randyharris1999-cloud.github.io/guelph-transit-planner/`.
-
-`config.js` points at the Cloudflare Worker you already run (`guelph-trip-planner`). It accepts any page on `randyharris1999-cloud.github.io`, so nothing needs to change on Cloudflare.
-
-## Test on your own computer
-
-Browsers block data loading from files opened by double-clicking, so serve the folder:
-
-```
-cd guelph-transit-planner
-python -m http.server 8000
-```
-
-Open http://localhost:8000. The Worker also allows `localhost:8000`, so live buses work here too.
-
-**Preview mode:** add `?preview=1` (http://localhost:8000/?preview=1) to replay the saved Guelph Transit snapshot in `data/realtime/` from Fri Oct 23 2026, 11:47am. The app's clock is set to that moment so buses, predictions and alerts line up. It's handy for testing when the live feed is down. Normal visits never use it.
 
 ## What's in the folder
 
@@ -64,13 +43,6 @@ Open http://localhost:8000. The Worker also allows `localhost:8000`, so live bus
 | `src/` | App source in numbered parts (styles, layout, map, planner, live buses) |
 | `scripts/build_html.py` | Joins `src/` into `index.html` |
 
-## Editing
-
-Change files in `src/`, then run `python scripts/build_html.py` from this folder to rebuild `index.html`. Parts of the code are shared with 15-Minute Guelph: the basemap (`src/25-basemap.js`), labels (`src/30-labels.js`) and live buses (`src/50-live.js`).
-
-## Updating the data
-
-The files in `data/` come from the 15-Minute Guelph build pipeline (its `scripts/` folder). When Guelph Transit publishes a new schedule (usually September and January), rebuild 15-Minute Guelph's data and copy these files here: `graph.json`, `places.json`, `addresses.json`, `trees.json`, `transit.json`, `buildings.json`, `water.json`, `streetnames.json`.
 
 ## How trips are found
 
