@@ -273,6 +273,11 @@ footer{font-size:11px;color:var(--muted);margin-top:auto}
 .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
 .leaflet-popup-tip{background:var(--panel)}
 .leaflet-popup-content{margin:10px 12px;font-family:var(--f-body)}
+.leaflet-container a.leaflet-popup-close-button{width:32px;height:32px;top:4px;right:4px;font:400 24px/30px var(--f-body);color:var(--muted);border-radius:8px;text-align:center}
+.leaflet-container a.leaflet-popup-close-button:hover,.leaflet-container a.leaflet-popup-close-button:focus-visible{background:var(--chip);color:var(--ink)}
+.mpop>b,.mpop>.ico+b{padding-right:30px}
+#map.card-open .pickhint,#map.card-open .legend{display:none!important}
+@media (max-width:760px){#map.card-open .refresh{display:none!important}}
 .mpop b{display:block;font-size:13px;margin-bottom:8px;max-width:220px}
 .mpop button{display:block;width:100%;font:inherit;font-size:13px;font-weight:600;padding:7px 10px;margin-top:5px;border-radius:7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;text-align:left}
 .mpop button:hover{background:var(--chip)}
@@ -929,7 +934,7 @@ function placePopup(hit){ const {p, cat} = hit; S.place = hit; base.draw();
   const html = `<div class="mpop">${iconSVG(glyphFor(cat,p), CAT[cat].color, 26)}<b>${esc(ep.label)}</b><div class="pk">${esc(kind)}${placeWhere(p,p.lat,p.lon)? " · "+esc(placeWhere(p,p.lat,p.lon)) : ""}</div>
     ${st.length ? st.map(([si,d]) => `<button class="pst" data-m="stop" data-si="${si}"><span>${esc(D.stops[si].name)}<small> · ${mins(d/WALK*60)} min walk</small></span><span class="rs">${[...I.sRoutes[si]].slice(0,5).map(ri=>chip(ri)).join("")}</span></button>`).join("") : `<div class="pk">No bus stop within an 8-minute walk</div>`}
     <button data-m="to">Go here</button><button data-m="from">Start a trip here</button></div>`;
-  const pop = L.popup({closeButton:false, offset:[0,-8], maxWidth:280}).setLatLng([p.lat,p.lon]).setContent(html).openOn(map);
+  const pop = L.popup({closeButton:true, closeButtonLabel:"Close", offset:[0,-8], maxWidth:280, autoPanPaddingTopLeft:[10,60]}).setLatLng([p.lat,p.lon]).setContent(html).openOn(map);
   pop.on("remove", () => { if(S.place===hit){ S.place=null; base.draw(); } });
   pop.getElement().addEventListener("click", ev => { const b=ev.target.closest("[data-m]"); if(!b) return; map.closePopup();
     if(b.dataset.m==="stop"){ openStop(+b.dataset.si); return; }
@@ -1223,13 +1228,17 @@ async function boot(){
   renderLayerChips();
   $("layers").addEventListener("click", e => { const b=e.target.closest("[data-layer]"); if(!b) return; const k=b.dataset.layer; SHOWP.has(k)? SHOWP.delete(k) : SHOWP.add(k); b.setAttribute("aria-pressed", SHOWP.has(k)); base.draw(); });
   L.DomEvent.disableClickPropagation($("layers")); L.DomEvent.disableScrollPropagation($("layers"));
-  map.on("click", e => { const p=map.latLngToContainerPoint(e.latlng), z=map.getZoom(); let best=-1, bd=(z>=16? 14 : 10)**2;
+  // a tap on the map while a card is open just closes the card (Leaflet closes it on "preclick")
+  let cardWasOpen = false;
+  map.on("popupopen", () => $("map").classList.add("card-open")); map.on("popupclose", () => $("map").classList.remove("card-open"));
+  map.on("preclick", () => { cardWasOpen = !!(map._popup && map.hasLayer(map._popup)); });
+  map.on("click", e => { if(cardWasOpen){ cardWasOpen = false; return; } const p=map.latLngToContainerPoint(e.latlng), z=map.getZoom(); let best=-1, bd=(z>=16? 14 : 10)**2;
     const tgt = pickTarget(); if(tgt){ S.pick=null; setEnd(tgt, tapEndpoint(e.latlng, p), {view:false}); return; }
     const hitP = placeAt(p); if(hitP){ placePopup(hitP); return; }
     if(z>=14 || focus()) for(const s of D.stops){ const q=map.latLngToContainerPoint([s.lat,s.lon]), d=(q.x-p.x)**2+(q.y-p.y)**2; if(d<bd){bd=d;best=s.i;} }
     if(best>=0){ openStop(best, {pan:false}); return; }
     const ep = tapPoint(e.latlng);
-    const pop = L.popup({closeButton:false, offset:[0,-4]}).setLatLng(e.latlng).setContent(`<div class="mpop"><b>${esc(ep.label)}</b><button data-m="from">Start a trip here</button><button data-m="to">Go here</button><button data-m="stops">Stops near here</button></div>`).openOn(map);
+    const pop = L.popup({closeButton:true, closeButtonLabel:"Close", offset:[0,-4], autoPanPaddingTopLeft:[10,60]}).setLatLng(e.latlng).setContent(`<div class="mpop"><b>${esc(ep.label)}</b><button data-m="from">Start a trip here</button><button data-m="to">Go here</button><button data-m="stops">Stops near here</button></div>`).openOn(map);
     pop.getElement().addEventListener("click", ev => { const b=ev.target.closest("[data-m]"); if(!b) return; map.closePopup();
       if(b.dataset.m==="stops"){ S.stop=null; map.panTo(e.latlng); setTab("stops"); setTimeout(renderStop, 300); return; }
       if(S.tab!=="plan") setTab("plan"); setEnd(b.dataset.m, ep); }); });
