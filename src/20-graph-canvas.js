@@ -1,10 +1,23 @@
-function dijkstra(seeds, limit = Infinity){
+// Walking search. Costs are metres of flat walking: with hills loaded (D.cAB / D.cBA) uphill costs more
+// than downhill, so direction matters. reverse=true finds the cost of walking TO the seeds (for the walk
+// from the last bus stop to the destination).
+function dijkstra(seeds, limit = Infinity, reverse = false){
   const N = D.N, dist = new Float64Array(N).fill(Infinity), pred = new Int32Array(N).fill(-1), h = new Heap();
+  const cAB = D.cAB || D.el, cBA = D.cBA || D.el;
   for(const [n,d] of seeds) if(d < dist[n]){ dist[n]=d; pred[n]=-1; h.push(d,n); }
   while(h.size){ const u = h.pop(), du = h.lastKey; if(du > dist[u] || du > limit) continue;
-    for(let j=D.off[u]; j<D.off[u+1]; j++){ const v=D.adjN[j], nd=du + D.el[D.adjE[j]]; if(nd < dist[v]){ dist[v]=nd; pred[v]=D.adjE[j]; h.push(nd,v); } } }
-  return {dist, pred};
+    for(let j=D.off[u]; j<D.off[u+1]; j++){ const v=D.adjN[j], e=D.adjE[j], fwd = (D.ea[e]===u) !== reverse;
+      const nd = du + (fwd ? cAB[e] : cBA[e]); if(nd < dist[v]){ dist[v]=nd; pred[v]=e; h.push(nd,v); } } }
+  return {dist, pred, reverse};
 }
+// real length, climb and descent along a search tree's path to `node`, in the direction actually walked
+function treeStats(tree, node){ let u=node, len=0, up=0, dn=0, guard=0;
+  while(guard++<20000){ const e=tree.pred[u]; if(e<0) break; const from = D.ea[e]===u ? D.eb[e] : D.ea[e];
+    len += D.el[e];
+    if(D.eup){ const walkedAB = tree.reverse ? (u===D.ea[e]) : (from===D.ea[e]);   // forward tree walks from -> u, reverse walks u -> from
+      up += walkedAB ? D.eup[e] : D.edn[e]; dn += walkedAB ? D.edn[e] : D.eup[e]; }
+    u=from; }
+  return {len, up, dn}; }
 const MapCanvas = L.Layer.extend({
   onAdd(m){ this._m=m; const c=this._c=L.DomUtil.create("canvas","leaflet-zoom-animated"); m.getPane("overlayPane").appendChild(c);
     m.on("moveend zoomend resize viewreset", this._reset, this); m.on("zoomanim", this._anim, this); this._reset(); },

@@ -5,6 +5,7 @@ function drawBase(ctx,X,Y,z,size){
   // parks
   ctx.fillStyle=C.park; ctx.strokeStyle=C.parkEdge; ctx.lineWidth=1;
   for(const p of D.parks){ ctx.beginPath(); for(const [xs,ys] of p.rings){ ctx.moveTo(X(xs[0]),Y(ys[0])); for(let j=1;j<xs.length;j++) ctx.lineTo(X(xs[j]),Y(ys[j])); ctx.closePath(); } ctx.fill(); if(z>=14) ctx.stroke(); }
+  if(typeof drawHills==="function") drawHills(ctx,X,Y,z);
   // watercourses
   const vis = o => !(X(o.x1)<0 || X(o.x0)>size.x || Y(o.y1)<0 || Y(o.y0)>size.y);   // y0 = north edge in mercator
   ctx.beginPath(); for(const w of D.wat){ if(!vis(w)) continue; for(const [xs,ys] of w.rings){ ctx.moveTo(X(xs[0]),Y(ys[0])); for(let j=1;j<xs.length;j++) ctx.lineTo(X(xs[j]),Y(ys[j])); ctx.closePath(); } }
