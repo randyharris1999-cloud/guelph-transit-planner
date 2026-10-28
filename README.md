@@ -8,6 +8,7 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - Start and destination: type an address, a place (library, park, restaurant, grocery store, clinic…), or a stop number, use your location, or just tap the map: once for the start, once for the destination. Drag either pin to fine-tune it. The pin button in the destination box lets you re-pick the destination on the map.
 - Leave now (with live arrival predictions) or leave at a chosen day and time.
 - Up to three trip options plus walking, with step-by-step legs, the stops on each ride, transfers, and live delays.
+- Tap any step of a trip (a walk, a ride, a transfer, or the arrival) to zoom the map to that part and highlight it. Tap it again to see the whole trip.
 - A 10-minute walk area around the start, coloured by walking time (0–5 and 5–10 minutes) the same way as 15-Minute Guelph, with the next buses from every stop in it.
 
 **Routes**

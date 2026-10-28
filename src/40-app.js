@@ -226,8 +226,11 @@ function drawAll(ctx,X,Y,z,size){
     ctx.strokeStyle=RT(sh.route)[2]; ctx.globalAlpha = F? (dark? .16 : .12) : (dark? .32 : .26); ctx.lineWidth=Math.max(1.5, 2.6*sc); ctx.stroke(); ctx.globalAlpha=1; }
   // routes in focus
   if(F){ const w = Math.max(4, 5*sc);
+    if(F.trip && S.leg != null){ const l = S.leg==="end" ? null : F.trip.legs[S.leg];
+      if(l && l.pts && l.pts.length){ ctx.beginPath(); lineP(ctx,X,Y,l.pts); ctx.strokeStyle = l.type==="ride" ? RT(l.route)[2] : C.accent; ctx.globalAlpha=.35; ctx.lineWidth=Math.min(30, Math.max(18, 20*sc)); ctx.stroke(); ctx.globalAlpha=1; }
+      if(S.leg==="end"){ const x=X(mercX(S.to.lon)), y=Y(mercY(S.to.lat)); ctx.beginPath(); ctx.arc(x,y,22,0,6.2832); ctx.fillStyle=C.accent; ctx.globalAlpha=.25; ctx.fill(); ctx.globalAlpha=1; } }
     if(F.trip){ for(const ri of F.routes){ for(const sh of D.shapes) if(sh.route===ri){ ctx.beginPath(); line(ctx,X,Y,sh.xs,sh.ys); ctx.strokeStyle=RT(ri)[2]; ctx.globalAlpha=.4; ctx.lineWidth=Math.max(2,3*sc); ctx.stroke(); ctx.globalAlpha=1; } }
-      for(const l of F.trip.rides){ ctx.beginPath(); lineP(ctx,X,Y,l.pts); cased(ctx, Math.max(5, 7*sc), RT(l.route)[2], C); } }
+      for(const l of F.trip.rides){ ctx.beginPath(); lineP(ctx,X,Y,l.pts); cased(ctx, Math.min(11, Math.max(5, 7*sc)), RT(l.route)[2], C); } }
     else if(F.bus){ const gi = F.bus.info.ti!=null ? D.days[F.bus.info.day].shape?.[F.bus.info.ti] : null, ri=[...F.routes][0];
       if(gi!=null){ const s=tshapeM(gi); ctx.beginPath(); line(ctx,X,Y,s.xs,s.ys); cased(ctx, w, RT(ri)[2], C); }
       else for(const sh of D.shapes) if(sh.route===ri){ ctx.beginPath(); line(ctx,X,Y,sh.xs,sh.ys); cased(ctx, w, RT(ri)[2], C); } }
@@ -243,10 +246,10 @@ function drawAll(ctx,X,Y,z,size){
   drawLabels(ctx,X,Y,z,size,C);
   // walking legs of the chosen trip, on top
   if(F && F.trip){ for(const l of F.trip.legs){ if(l.type==="ride" || !l.pts) continue; ctx.beginPath(); lineP(ctx,X,Y,l.pts);
-      ctx.strokeStyle=C.panel; ctx.lineWidth=Math.max(6,8*sc); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.max(3,4*sc); ctx.setLineDash([1, Math.max(6,7*sc)]); ctx.stroke(); ctx.setLineDash([]); }
-    for(const l of F.trip.rides){ for(const si of [l.a, l.b]){ const s=D.stops[si]; ring(ctx, X(s.mx), Y(s.my), Math.max(6, 6*sc), RT(l.route)[2], C); } } }
+      ctx.strokeStyle=C.panel; ctx.lineWidth=Math.min(12,Math.max(6,8*sc)); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.min(6,Math.max(3,4*sc)); ctx.setLineDash([1, Math.min(11,Math.max(6,7*sc))]); ctx.stroke(); ctx.setLineDash([]); }
+    for(const l of F.trip.rides){ for(const si of [l.a, l.b]){ const s=D.stops[si]; ring(ctx, X(s.mx), Y(s.my), Math.min(10, Math.max(6, 6*sc)), RT(l.route)[2], C); } } }
   else if(S.tab==="plan" && S.opts && S.opts[S.opt] && S.opts[S.opt].walkOnly){ const l=S.opts[S.opt].legs[0]; ctx.beginPath(); lineP(ctx,X,Y,l.pts);
-    ctx.strokeStyle=C.panel; ctx.lineWidth=Math.max(6,8*sc); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.max(3,4*sc); ctx.setLineDash([1, Math.max(6,7*sc)]); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.strokeStyle=C.panel; ctx.lineWidth=Math.min(12,Math.max(6,8*sc)); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.min(6,Math.max(3,4*sc)); ctx.setLineDash([1, Math.min(11,Math.max(6,7*sc))]); ctx.stroke(); ctx.setLineDash([]); }
 }
 /* ---------- places layers (OpenStreetMap shops and services + City facilities) ---------- */
 // key, label, D.pts list, CAT colour/glyph, min zoom, on by default
@@ -353,7 +356,19 @@ function setEnd(f, ep, {go=true, view=true}={}){ S[f]=ep; $(f+"Q").value = ep ? 
   redraw(); syncURL(); }
 function planTime(){ if(S.when==="now") return {day:todayType(), t:nowSec()}; return {day:S.day, t:S.t}; }
 function runPlan(){ if(!S.from || !S.to) { renderPlan(); return; } const {day, t} = planTime();
-  S.opts = planTrip(S.from, S.to, day, t); S.opt = 0; S.planDay = day; renderPlan(); fitTrip(); redraw(); }
+  S.opts = planTrip(S.from, S.to, day, t); S.opt = 0; S.leg = null; S.planDay = day; renderPlan(); fitTrip(); redraw(); }
+// zoom the map to one part of the chosen trip (tap the same part again to see the whole trip)
+function showLeg(k){ const o = S.opts && S.opts[S.opt]; if(!o) return;
+  if(S.leg === k){ S.leg = null; renderPlan(); fitTrip(); redraw(); return; }
+  S.leg = k; const b = L.latLngBounds([]);
+  if(k === "end"){ b.extend([S.to.lat, S.to.lon]); const last=o.legs[o.legs.length-1]; (last.pts||[]).slice(-6).forEach(p => b.extend(unmerc(p[0],p[1]))); }
+  else { const l=o.legs[k]; for(const p of l.pts||[]) b.extend(unmerc(p[0],p[1]));
+    if(l.type==="walk" && l.fromStart) b.extend([S.from.lat, S.from.lon]); if(l.type==="walk" && l.toEnd) b.extend([S.to.lat, S.to.lon]); }
+  if(b.isValid()){ const phone = innerWidth <= 760;
+    if(b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), 17);
+    else map.fitBounds(b, {paddingTopLeft:[40, 70], paddingBottomRight:[40, phone? 50 : 60], maxZoom:17}); }
+  document.querySelectorAll("[data-leg]").forEach(r => r.setAttribute("aria-pressed", String(r.dataset.leg) === String(k)));
+  redraw(); }
 function fitTrip(){ const o = S.opts && S.opts[S.opt]; if(!o) return; const b = L.latLngBounds([]); for(const l of o.legs) for(const p of l.pts||[]) b.extend(unmerc(p[0],p[1]));
   b.extend([S.from.lat,S.from.lon]); b.extend([S.to.lat,S.to.lon]); map.fitBounds(b.pad(.12), {maxZoom:16}); }
 const WALK_ICO = `<svg viewBox="0 0 24 24"><path d="M13.6 4.6a1.6 1.6 0 1 1-3.2 0a1.6 1.6 0 1 1 3.2 0 M7.5 21l3-7.5 3.2 2.6V21 M10.5 13.5l1.4-5 3.6 3.2 2.5.4 M9.3 9.5l-2.2 3"/></svg>`;
@@ -374,16 +389,18 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
   const al = liveOK(dd) ? alertsFor(new Set(list.map(g=>g.route)), new Set(rank.keys())) : [];
   el.innerHTML = `<div class="sec"><h3>Buses within a 10-minute walk <em>${near.length} stop${near.length===1?"":"s"}${liveOK(dd)? '<span class="livetag">live</span>' : ""}</em></h3>${alertHTML(al)}<div class="deps">${list.length ? depRows(list, {day:dd, rel:S.when==="now", sub:g => `${esc(D.stops[g.si].name)} · ${mins(rank.get(g.si)/WALK*60)} min walk`}) : `<p class="empty">No departures from stops within a 10-minute walk in the next hour.</p>`}</div></div>`; }
 function legsHTML(o, day){ const rows=[];
-  const walkRow = (t, label, sub) => `<div class="leg walk"><span class="t">${t}</span><span class="rail"><i style="--c:var(--ink)"></i></span><span class="d"><b>${label}</b><div>${sub}</div></span></div>`;
-  for(const l of o.legs){
+  const lg = i => `data-leg="${i}" role="button" tabindex="0" aria-pressed="${S.leg===i}" title="Show this part on the map"`;
+  let i = -1;
+  const walkRow = (t, label, sub) => `<div class="leg walk" ${lg(i)}><span class="t">${t}</span><span class="rail"><i style="--c:var(--ink)"></i></span><span class="d"><b>${label}</b><div>${sub}</div></span></div>`;
+  for(const l of o.legs){ i++;
     if(l.type==="walk"){ const m=mins(l.d/WALK*60), km=(l.d/1000).toFixed(1);
       if(l.fromStart) rows.push(walkRow(fmtT(l.t0), esc(S.from.label), l.toEnd? `Walk ${m} min (${km} km) to your destination` : `Walk ${m} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})`));
       else rows.push(walkRow(fmtT(l.t0), `Get off at ${esc(D.stops[l.a].name)}`, `Walk ${m} min to your destination`)); }
     else if(l.type==="xfer"){ rows.push(walkRow("", "Transfer", `Walk ${mins(l.dur)} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})`)); }
     else { const R=RT(l.route), n=Math.max(1,(l.via||[]).length-1), lt = l.live ? `<br><span style="font-size:10px">${fmtT(l.live.t)}</span>` : "";
-      rows.push(`<div class="leg" style="--c:${R[2]}"><span class="t">${fmtT(l.dep)}${lt}</span><span class="rail"><i></i></span><span class="d">${chip(l.route)} <b>${esc(headText(day,l.head) || R[1])}</b>${l.live? delayBadge(l.live) : ""}<div>From ${esc(D.stops[l.a].name)} (#${D.stops[l.a].code}) · ${n} stop${n>1?"s":""} · ${mins(l.arr-l.dep)} min</div>${l.stay ? `<div>At ${esc(D.stops[l.stay.si].name)} it continues as ${esc(headText(day,l.head2) || R[1])}${l.stay.wait>90 ? ` after about ${mins(l.stay.wait)} min` : ""}. Stay on, or board the next ${esc(R[0])} there.</div>` : ""}
+      rows.push(`<div class="leg" ${lg(i)} style="--c:${R[2]}"><span class="t">${fmtT(l.dep)}${lt}</span><span class="rail"><i></i></span><span class="d">${chip(l.route)} <b>${esc(headText(day,l.head) || R[1])}</b>${l.live? delayBadge(l.live) : ""}<div>From ${esc(D.stops[l.a].name)} (#${D.stops[l.a].code}) · ${n} stop${n>1?"s":""} · ${mins(l.arr-l.dep)} min</div>${l.stay ? `<div>At ${esc(D.stops[l.stay.si].name)} it continues as ${esc(headText(day,l.head2) || R[1])}${l.stay.wait>90 ? ` after about ${mins(l.stay.wait)} min` : ""}. Stay on, or board the next ${esc(R[0])} there.</div>` : ""}
         <details><summary>Stops on this ride</summary><ol>${(l.via||[]).map(([si,t]) => `<li>${fmtT(t)} · ${esc(D.stops[si].name)}</li>`).join("")}</ol></details></span></div>`); } }
-  rows.push(`<div class="leg walk"><span class="t">${fmtT(o.arrive)}</span><span class="rail"><i style="--c:var(--ink);border-radius:50% 50% 50% 0"></i></span><span class="d"><b>Arrive</b><div>${esc(S.to.label)}</div></span></div>`);
+  i = "end"; rows.push(`<div class="leg walk" ${lg("end")}><span class="t">${fmtT(o.arrive)}</span><span class="rail"><i style="--c:var(--ink);border-radius:50% 50% 50% 0"></i></span><span class="d"><b>Arrive</b><div>${esc(S.to.label)}</div></span></div>`);
   return `<div class="legs">${rows.join("")}</div>`; }
 
 /* ---------- ROUTES ---------- */
@@ -534,8 +551,10 @@ async function boot(){
   $("tabPlan").onclick = () => setTab("plan"); $("tabRoutes").onclick = () => setTab("routes"); $("tabStops").onclick = () => setTab("stops");
   $("stopQ").addEventListener("input", () => { S.stop=null; renderStop(); redraw(); });
   // one delegated handler for everything clickable in the panel
-  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
-    if(t.dataset.opt!=null){ const k=+t.dataset.opt; S.opt=k; renderPlan(); fitTrip(); redraw(); return; }
+  $("panel").addEventListener("keydown", e => { const t=e.target.closest("[data-leg]"); if(t && (e.key==="Enter" || e.key===" ")){ e.preventDefault(); t.click(); } });
+  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-leg],[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
+    if(t.dataset.opt!=null){ const k=+t.dataset.opt; S.opt=k; S.leg=null; renderPlan(); fitTrip(); redraw(); return; }
+    if(t.dataset.leg!=null){ if(e.target.closest("details")) return; showLeg(t.dataset.leg==="end" ? "end" : +t.dataset.leg); return; }
     if(t.id==="routeX"){ S.route=null; renderRoutes(); redraw(); syncURL(); return; }
     if(t.id==="stopX"){ S.stop=null; renderStop(); redraw(); syncURL(); return; }
     if(t.id==="busX"){ S.bus=null; $("busOut").hidden=true; redraw(); return; }
