@@ -310,6 +310,18 @@ footer{font-size:11px;color:var(--muted);margin-top:auto}
 .pickhint:not(:has(button:not([hidden]))){padding-right:14px}
 #map.picking .leaflet-container,#map.picking{cursor:crosshair}
 .ppin{cursor:grab}
+.hubs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hub{font:inherit;display:flex;gap:10px;align-items:center;text-align:left;padding:9px 10px;min-height:54px;border-radius:10px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;min-width:0}
+.hub:hover{background:var(--chip)}
+.hub:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hub .hi{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--hc);color:var(--hk)}
+.hub .hi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hub span{min-width:0}
+.hub b{display:block;font-size:14px;font-weight:700;line-height:1.2}
+.hub small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hub[aria-pressed="true"]{border-color:var(--hc);box-shadow:0 0 0 1px var(--hc);background:color-mix(in srgb,var(--hc) 10%,var(--bg))}
+#hubUG{--hc:var(--accent);--hk:var(--accent-ink)}
+#hubDT{--hc:var(--brand-green);--hk:#06230f}
 /* phones: stop Safari zooming in when a box is tapped (it zooms on anything under 16px),
    stop double-tap zoom in the panel, and never let the page slide sideways */
 html,body{overflow-x:clip;max-width:100%}
@@ -350,6 +362,10 @@ html,body{overflow-x:clip;max-width:100%}
 
     <!-- PLAN -->
     <section id="pPlan" role="tabpanel" aria-labelledby="tabPlan">
+      <div class="hubs" role="group" aria-label="One-tap trips">
+        <button class="hub" id="hubUG" data-hub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small>University Centre</small></span></button>
+        <button class="hub" id="hubDT" data-hub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small>Central Station</small></span></button>
+      </div>
       <div class="planner">
         <div class="pf"><span class="pdot" aria-hidden="true"></span><input id="fromQ" type="text" autocomplete="off" placeholder="Start: address, place or stop" aria-label="Start"><button class="ibtn" id="locBtn" aria-label="Use my location" title="Use my location"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3"/></svg></button></div>
         <div class="pf"><span class="pdot to" aria-hidden="true"></span><input id="toQ" type="text" autocomplete="off" placeholder="Where to? Address, park, library…" aria-label="Destination"><button class="ibtn" id="pickBtn" aria-label="Choose the destination on the map" title="Choose on the map"><svg viewBox="0 0 24 24"><path d="M12 21s6-5.3 6-10.3a6 6 0 0 0-12 0C6 15.7 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.2"/></svg></button></div>
@@ -1005,11 +1021,23 @@ function hideSugg(){ $("sugg").hidden=true; sugg=[]; }
 function pickSugg(k){ const s=sugg[k], f=sField; hideSugg(); if(!s) return;
   if(s.me){ locate(f); return; }
   setEnd(f, s.ep()); }
+/* ---------- one-tap hub trips ---------- */
+// each hub is the middle of its bus platforms, so the planner can use whichever platform suits the trip
+const HUBS = {uofg:{re:/^University Centre /, label:"U of G (University Centre)"}, downtown:{re:/^Guelph Central Station /, label:"Downtown (Guelph Central Station)"}};
+function hubEP(k){ const h=HUBS[k]; if(!h) return null; const ss=D.stops.filter(s => h.re.test(s.name)); if(!ss.length) return null;
+  const ep = epPoint(ss.reduce((t,s)=>t+s.lat,0)/ss.length, ss.reduce((t,s)=>t+s.lon,0)/ss.length, h.label); ep.hub=k; return ep; }
+function goHub(k){ const ep=hubEP(k); if(!ep) return; hideSugg(); S.pick=null; if(S.tab!=="plan") setTab("plan");
+  if(S.from && S.from.hub===k) S.from=null; // already starting there: start from where you are instead
+  setEnd("to", ep, {go:!!S.from});
+  if(S.from) return;
+  if("geolocation" in navigator){ $("planOut").innerHTML = `<p class="empty" id="locWait">Finding your location… or type a start above.</p>`; locate("from"); }
+  else $("fromQ").focus(); }
+function updateHubs(){ for(const b of document.querySelectorAll(".hub")) b.setAttribute("aria-pressed", !!(S.to && S.to.hub===b.dataset.hub)); }
 function setEnd(f, ep, {go=true, view=true}={}){ S[f]=ep; $(f+"Q").value = ep ? ep.label : ""; S.opts=null; S.opt=0;
   if(f==="from") S.walk = ep ? dijkstra([[ep.node, ep.conn]], (WALK_AREA+1)*WALK) : null;
   setPin(f, S.tab==="plan" ? ep : null);
   if(go && S.from && S.to) runPlan(); else { renderPlan(); if(ep && f==="from" && view) map.setView([ep.lat, ep.lon], Math.max(map.getZoom(), 15)); }
-  redraw(); syncURL(); }
+  redraw(); syncURL(); updateHubs(); }
 function planTime(){ if(S.when==="now") return {day:todayType(), t:nowSec()}; return {day:S.day, t:S.t}; }
 function runPlan(){ if(!S.from || !S.to) { renderPlan(); return; } const {day, t} = planTime();
   S.opts = planTrip(S.from, S.to, day, t); S.opt = 0; S.leg = null; S.planDay = day; renderPlan(); fitTrip(); redraw(); }
@@ -1143,17 +1171,17 @@ function locate(field="from"){ if(!("geolocation" in navigator)) return; wantFro
         meMarker=L.marker(ll, {icon:L.divIcon({className:"", html:'<div class="me"></div>', iconSize:[16,16], iconAnchor:[8,8]}), keyboard:false, interactive:false, zIndexOffset:1500}).addTo(map); }
       else { meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
       if(wantFrom){ useMe(); } },
-    () => { $("locBtn").classList.remove("on"); $("planOut").insertAdjacentHTML("afterbegin", `<p class="empty">Couldn't get your location. Type a start address instead.</p>`); }, {enableHighAccuracy:true, maximumAge:10000}); }
+    () => { $("locBtn").classList.remove("on"); wantFrom=null; $("locWait")?.remove(); $("planOut").insertAdjacentHTML("afterbegin", `<p class="empty">Couldn't get your location. Type a start address instead.</p>`); }, {enableHighAccuracy:true, maximumAge:10000}); }
 function useMe(){ const f=wantFrom; wantFrom=null; const ll=meMarker.getLatLng(); setEnd(f, epPoint(ll.lat, ll.lng, "My location")); map.setView(ll, Math.max(map.getZoom(), 16)); }
 
 /* ---------- URL ---------- */
 function syncURL(){ const p=new URLSearchParams(); if(PREVIEW) p.set("preview","1");
   if(S.tab!=="plan") p.set("tab", S.tab);
-  if(S.from && S.from.label!=="My location") p.set("from", S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
-  if(S.to) p.set("to", S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
+  if(S.from && S.from.label!=="My location") p.set("from", S.from.hub ? S.from.hub : S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
+  if(S.to) p.set("to", S.to.hub ? S.to.hub : S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
   if(S.tab==="routes" && S.route!=null) p.set("route", RT(S.route)[0]); if(S.tab==="stops" && S.stop!=null) p.set("stop", D.stops[S.stop].code);
   history.replaceState(null, "", location.pathname + (p.toString()? "?"+p : "")); }
-function resolve(text){ if(!text) return null; const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
+function resolve(text){ if(!text) return null; if(HUBS[text.toLowerCase()]) return hubEP(text.toLowerCase()); const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
   const st=text.match(/^stop\s+(\w+)$/i); if(st){ const s=D.stops.find(x=>x.code===st[1]); return s? epStop(s.i) : null; }
   const r=searchAll(text); return r.length ? r[0].ep() : null; }
 
@@ -1195,6 +1223,7 @@ async function boot(){
   $("goBtn").onclick = () => { if(!S.from){ $("fromQ").focus(); return; } if(!S.to){ $("toQ").focus(); return; } runPlan(); };
   $("swapBtn").onclick = () => { const a=S.from; S.from=null; setEnd("from", S.to, {go:false}); setEnd("to", a); };
   $("locBtn").onclick = () => locate("from");
+  for(const b of document.querySelectorAll(".hub")) b.onclick = () => goHub(b.dataset.hub);
   $("pickBtn").onclick = () => { S.pick = S.pick==="to" ? null : "to"; if(S.pick && S.tab!=="plan") setTab("plan"); updatePickHint(); };
   $("pickX").onclick = () => { S.pick=null; updatePickHint(); };
   document.addEventListener("keydown", e => { if(e.key==="Escape" && S.pick){ S.pick=null; updatePickHint(); } });

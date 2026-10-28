@@ -318,7 +318,7 @@ function placePopup(hit){ const {p, cat} = hit; S.place = hit; base.draw();
   const html = `<div class="mpop">${iconSVG(glyphFor(cat,p), CAT[cat].color, 26)}<b>${esc(ep.label)}</b><div class="pk">${esc(kind)}${placeWhere(p,p.lat,p.lon)? " · "+esc(placeWhere(p,p.lat,p.lon)) : ""}</div>
     ${st.length ? st.map(([si,d]) => `<button class="pst" data-m="stop" data-si="${si}"><span>${esc(D.stops[si].name)}<small> · ${mins(d/WALK*60)} min walk</small></span><span class="rs">${[...I.sRoutes[si]].slice(0,5).map(ri=>chip(ri)).join("")}</span></button>`).join("") : `<div class="pk">No bus stop within an 8-minute walk</div>`}
     <button data-m="to">Go here</button><button data-m="from">Start a trip here</button></div>`;
-  const pop = L.popup({closeButton:false, offset:[0,-8], maxWidth:280}).setLatLng([p.lat,p.lon]).setContent(html).openOn(map);
+  const pop = L.popup({closeButton:true, closeButtonLabel:"Close", offset:[0,-8], maxWidth:280, autoPanPaddingTopLeft:[10,60]}).setLatLng([p.lat,p.lon]).setContent(html).openOn(map);
   pop.on("remove", () => { if(S.place===hit){ S.place=null; base.draw(); } });
   pop.getElement().addEventListener("click", ev => { const b=ev.target.closest("[data-m]"); if(!b) return; map.closePopup();
     if(b.dataset.m==="stop"){ openStop(+b.dataset.si); return; }
@@ -389,11 +389,23 @@ function hideSugg(){ $("sugg").hidden=true; sugg=[]; }
 function pickSugg(k){ const s=sugg[k], f=sField; hideSugg(); if(!s) return;
   if(s.me){ locate(f); return; }
   setEnd(f, s.ep()); }
+/* ---------- one-tap hub trips ---------- */
+// each hub is the middle of its bus platforms, so the planner can use whichever platform suits the trip
+const HUBS = {uofg:{re:/^University Centre /, label:"U of G (University Centre)"}, downtown:{re:/^Guelph Central Station /, label:"Downtown (Guelph Central Station)"}};
+function hubEP(k){ const h=HUBS[k]; if(!h) return null; const ss=D.stops.filter(s => h.re.test(s.name)); if(!ss.length) return null;
+  const ep = epPoint(ss.reduce((t,s)=>t+s.lat,0)/ss.length, ss.reduce((t,s)=>t+s.lon,0)/ss.length, h.label); ep.hub=k; return ep; }
+function goHub(k){ const ep=hubEP(k); if(!ep) return; hideSugg(); S.pick=null; if(S.tab!=="plan") setTab("plan");
+  if(S.from && S.from.hub===k) S.from=null; // already starting there: start from where you are instead
+  setEnd("to", ep, {go:!!S.from});
+  if(S.from) return;
+  if("geolocation" in navigator){ $("planOut").innerHTML = `<p class="empty" id="locWait">Finding your location… or type a start above.</p>`; locate("from"); }
+  else $("fromQ").focus(); }
+function updateHubs(){ for(const b of document.querySelectorAll(".hub")) b.setAttribute("aria-pressed", !!(S.to && S.to.hub===b.dataset.hub)); }
 function setEnd(f, ep, {go=true, view=true}={}){ S[f]=ep; $(f+"Q").value = ep ? ep.label : ""; S.opts=null; S.opt=0;
   if(f==="from") S.walk = ep ? dijkstra([[ep.node, ep.conn]], (WALK_AREA+1)*WALK) : null;
   setPin(f, S.tab==="plan" ? ep : null);
   if(go && S.from && S.to) runPlan(); else { renderPlan(); if(ep && f==="from" && view) map.setView([ep.lat, ep.lon], Math.max(map.getZoom(), 15)); }
-  redraw(); syncURL(); }
+  redraw(); syncURL(); updateHubs(); }
 function planTime(){ if(S.when==="now") return {day:todayType(), t:nowSec()}; return {day:S.day, t:S.t}; }
 function runPlan(){ if(!S.from || !S.to) { renderPlan(); return; } const {day, t} = planTime();
   S.opts = planTrip(S.from, S.to, day, t); S.opt = 0; S.leg = null; S.planDay = day; renderPlan(); fitTrip(); redraw(); }
@@ -527,17 +539,17 @@ function locate(field="from"){ if(!("geolocation" in navigator)) return; wantFro
         meMarker=L.marker(ll, {icon:L.divIcon({className:"", html:'<div class="me"></div>', iconSize:[16,16], iconAnchor:[8,8]}), keyboard:false, interactive:false, zIndexOffset:1500}).addTo(map); }
       else { meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
       if(wantFrom){ useMe(); } },
-    () => { $("locBtn").classList.remove("on"); $("planOut").insertAdjacentHTML("afterbegin", `<p class="empty">Couldn't get your location. Type a start address instead.</p>`); }, {enableHighAccuracy:true, maximumAge:10000}); }
+    () => { $("locBtn").classList.remove("on"); wantFrom=null; $("locWait")?.remove(); $("planOut").insertAdjacentHTML("afterbegin", `<p class="empty">Couldn't get your location. Type a start address instead.</p>`); }, {enableHighAccuracy:true, maximumAge:10000}); }
 function useMe(){ const f=wantFrom; wantFrom=null; const ll=meMarker.getLatLng(); setEnd(f, epPoint(ll.lat, ll.lng, "My location")); map.setView(ll, Math.max(map.getZoom(), 16)); }
 
 /* ---------- URL ---------- */
 function syncURL(){ const p=new URLSearchParams(); if(PREVIEW) p.set("preview","1");
   if(S.tab!=="plan") p.set("tab", S.tab);
-  if(S.from && S.from.label!=="My location") p.set("from", S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
-  if(S.to) p.set("to", S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
+  if(S.from && S.from.label!=="My location") p.set("from", S.from.hub ? S.from.hub : S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
+  if(S.to) p.set("to", S.to.hub ? S.to.hub : S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
   if(S.tab==="routes" && S.route!=null) p.set("route", RT(S.route)[0]); if(S.tab==="stops" && S.stop!=null) p.set("stop", D.stops[S.stop].code);
   history.replaceState(null, "", location.pathname + (p.toString()? "?"+p : "")); }
-function resolve(text){ if(!text) return null; const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
+function resolve(text){ if(!text) return null; if(HUBS[text.toLowerCase()]) return hubEP(text.toLowerCase()); const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
   const st=text.match(/^stop\s+(\w+)$/i); if(st){ const s=D.stops.find(x=>x.code===st[1]); return s? epStop(s.i) : null; }
   const r=searchAll(text); return r.length ? r[0].ep() : null; }
 
@@ -579,6 +591,7 @@ async function boot(){
   $("goBtn").onclick = () => { if(!S.from){ $("fromQ").focus(); return; } if(!S.to){ $("toQ").focus(); return; } runPlan(); };
   $("swapBtn").onclick = () => { const a=S.from; S.from=null; setEnd("from", S.to, {go:false}); setEnd("to", a); };
   $("locBtn").onclick = () => locate("from");
+  for(const b of document.querySelectorAll(".hub")) b.onclick = () => goHub(b.dataset.hub);
   $("pickBtn").onclick = () => { S.pick = S.pick==="to" ? null : "to"; if(S.pick && S.tab!=="plan") setTab("plan"); updatePickHint(); };
   $("pickX").onclick = () => { S.pick=null; updatePickHint(); };
   document.addEventListener("keydown", e => { if(e.key==="Escape" && S.pick){ S.pick=null; updatePickHint(); } });
@@ -612,13 +625,17 @@ async function boot(){
   renderLayerChips();
   $("layers").addEventListener("click", e => { const b=e.target.closest("[data-layer]"); if(!b) return; const k=b.dataset.layer; SHOWP.has(k)? SHOWP.delete(k) : SHOWP.add(k); b.setAttribute("aria-pressed", SHOWP.has(k)); base.draw(); });
   L.DomEvent.disableClickPropagation($("layers")); L.DomEvent.disableScrollPropagation($("layers"));
-  map.on("click", e => { const p=map.latLngToContainerPoint(e.latlng), z=map.getZoom(); let best=-1, bd=(z>=16? 14 : 10)**2;
+  // a tap on the map while a card is open just closes the card (Leaflet closes it on "preclick")
+  let cardWasOpen = false;
+  map.on("popupopen", () => $("map").classList.add("card-open")); map.on("popupclose", () => $("map").classList.remove("card-open"));
+  map.on("preclick", () => { cardWasOpen = !!(map._popup && map.hasLayer(map._popup)); });
+  map.on("click", e => { if(cardWasOpen){ cardWasOpen = false; return; } const p=map.latLngToContainerPoint(e.latlng), z=map.getZoom(); let best=-1, bd=(z>=16? 14 : 10)**2;
     const tgt = pickTarget(); if(tgt){ S.pick=null; setEnd(tgt, tapEndpoint(e.latlng, p), {view:false}); return; }
     const hitP = placeAt(p); if(hitP){ placePopup(hitP); return; }
     if(z>=14 || focus()) for(const s of D.stops){ const q=map.latLngToContainerPoint([s.lat,s.lon]), d=(q.x-p.x)**2+(q.y-p.y)**2; if(d<bd){bd=d;best=s.i;} }
     if(best>=0){ openStop(best, {pan:false}); return; }
     const ep = tapPoint(e.latlng);
-    const pop = L.popup({closeButton:false, offset:[0,-4]}).setLatLng(e.latlng).setContent(`<div class="mpop"><b>${esc(ep.label)}</b><button data-m="from">Start a trip here</button><button data-m="to">Go here</button><button data-m="stops">Stops near here</button></div>`).openOn(map);
+    const pop = L.popup({closeButton:true, closeButtonLabel:"Close", offset:[0,-4], autoPanPaddingTopLeft:[10,60]}).setLatLng(e.latlng).setContent(`<div class="mpop"><b>${esc(ep.label)}</b><button data-m="from">Start a trip here</button><button data-m="to">Go here</button><button data-m="stops">Stops near here</button></div>`).openOn(map);
     pop.getElement().addEventListener("click", ev => { const b=ev.target.closest("[data-m]"); if(!b) return; map.closePopup();
       if(b.dataset.m==="stops"){ S.stop=null; map.panTo(e.latlng); setTab("stops"); setTimeout(renderStop, 300); return; }
       if(S.tab!=="plan") setTab("plan"); setEnd(b.dataset.m, ep); }); });

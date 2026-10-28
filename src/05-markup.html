@@ -113,6 +113,11 @@
 .leaflet-popup-content-wrapper{background:var(--panel);color:var(--ink);border-radius:10px}
 .leaflet-popup-tip{background:var(--panel)}
 .leaflet-popup-content{margin:10px 12px;font-family:var(--f-body)}
+.leaflet-container a.leaflet-popup-close-button{width:32px;height:32px;top:4px;right:4px;font:400 24px/30px var(--f-body);color:var(--muted);border-radius:8px;text-align:center}
+.leaflet-container a.leaflet-popup-close-button:hover,.leaflet-container a.leaflet-popup-close-button:focus-visible{background:var(--chip);color:var(--ink)}
+.mpop>b,.mpop>.ico+b{padding-right:30px}
+#map.card-open .pickhint,#map.card-open .legend{display:none!important}
+@media (max-width:760px){#map.card-open .refresh{display:none!important}}
 .mpop b{display:block;font-size:13px;margin-bottom:8px;max-width:220px}
 .mpop button{display:block;width:100%;font:inherit;font-size:13px;font-weight:600;padding:7px 10px;margin-top:5px;border-radius:7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;text-align:left}
 .mpop button:hover{background:var(--chip)}
@@ -145,6 +150,18 @@
 .pickhint:not(:has(button:not([hidden]))){padding-right:14px}
 #map.picking .leaflet-container,#map.picking{cursor:crosshair}
 .ppin{cursor:grab}
+.hubs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hub{font:inherit;display:flex;gap:10px;align-items:center;text-align:left;padding:9px 10px;min-height:54px;border-radius:10px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;min-width:0}
+.hub:hover{background:var(--chip)}
+.hub:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hub .hi{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--hc);color:var(--hk)}
+.hub .hi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hub span{min-width:0}
+.hub b{display:block;font-size:14px;font-weight:700;line-height:1.2}
+.hub small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hub[aria-pressed="true"]{border-color:var(--hc);box-shadow:0 0 0 1px var(--hc);background:color-mix(in srgb,var(--hc) 10%,var(--bg))}
+#hubUG{--hc:var(--accent);--hk:var(--accent-ink)}
+#hubDT{--hc:var(--brand-green);--hk:#06230f}
 /* phones: stop Safari zooming in when a box is tapped (it zooms on anything under 16px),
    stop double-tap zoom in the panel, and never let the page slide sideways */
 html,body{overflow-x:clip;max-width:100%}
@@ -185,6 +202,10 @@ html,body{overflow-x:clip;max-width:100%}
 
     <!-- PLAN -->
     <section id="pPlan" role="tabpanel" aria-labelledby="tabPlan">
+      <div class="hubs" role="group" aria-label="One-tap trips">
+        <button class="hub" id="hubUG" data-hub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small>University Centre</small></span></button>
+        <button class="hub" id="hubDT" data-hub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small>Central Station</small></span></button>
+      </div>
       <div class="planner">
         <div class="pf"><span class="pdot" aria-hidden="true"></span><input id="fromQ" type="text" autocomplete="off" placeholder="Start: address, place or stop" aria-label="Start"><button class="ibtn" id="locBtn" aria-label="Use my location" title="Use my location"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3"/></svg></button></div>
         <div class="pf"><span class="pdot to" aria-hidden="true"></span><input id="toQ" type="text" autocomplete="off" placeholder="Where to? Address, park, library…" aria-label="Destination"><button class="ibtn" id="pickBtn" aria-label="Choose the destination on the map" title="Choose on the map"><svg viewBox="0 0 24 24"><path d="M12 21s6-5.3 6-10.3a6 6 0 0 0-12 0C6 15.7 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.2"/></svg></button></div>
