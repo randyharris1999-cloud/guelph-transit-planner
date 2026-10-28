@@ -106,10 +106,26 @@ function departures(stopSet, day, t0, t1, rankOf){
       .filter(it => it.t >= t0 - 30 && it.t < t1 + (live? 900 : 0)).sort((a,b) => a.t-b.t);
   return [...groups.values()].filter(g => g.items.length).sort((a,b) => a.items[0].t - b.items[0].t); }
 const delayBadge = it => it.delay == null ? "" : Math.abs(it.delay) < 60 ? `<span class="ontime">on time</span>` : it.delay > 0 ? `<span class="late">+${Math.round(it.delay/60)}</span>` : `<span class="ontime">${Math.round(it.delay/60)}</span>`;
+/* ---------- countdowns: any <span class="cd" data-t="…"> ticks every second ---------- */
+// buses: "14 min", then "4m 32s" in the last 10 minutes, "Due" in the last 30 s; "leave" countdowns end at "now"
+function cdText(t, k){ const s = Math.round(t - nowSec());
+  if(k==="leave") return s <= 15 ? "now" : "in " + cdSpan(s);
+  if(k==="in") return s < -30 ? "has left" : s <= 30 ? "due now" : "in " + cdSpan(s);
+  if(s < -30) return "left"; if(s <= 30) return "Due"; return cdSpan(s); }
+function cdSpan(s){ return s < 60 ? s + "s" : s < 600 ? Math.floor(s/60) + "m " + String(s%60).padStart(2,"0") + "s" : s < 3600 ? Math.round(s/60) + " min" : Math.floor(s/3600) + " h " + Math.round(s%3600/60) + " min"; }
+function cdState(t){ const s = t - nowSec(); return s < -30 ? "gone" : s <= 30 ? "due" : s < 120 ? "soon" : ""; }
+const cd = (t, k="") => `<span class="cd ${cdState(t)}" data-t="${Math.round(t)}"${k ? ` data-k="${k}"` : ""}>${cdText(t, k)}</span>`;
+function tickCD(){ let stale = false;
+  for(const el of document.querySelectorAll(".cd[data-t]")){ const t=+el.dataset.t, k=el.dataset.k, st=cdState(t);
+    const txt=cdText(t, k); if(el.textContent!==txt) el.textContent=txt;
+    if(!el.classList.contains(st || "x")) { el.classList.remove("soon","due","gone"); if(st) el.classList.add(st); if(st==="gone" && !k && !el.closest("#planOut .opt")) stale = true; } }
+  if(stale) refreshPanel(); }   // a departure has gone: refresh the list so the next bus moves up
+// trip countdowns only make sense when the trip is for today and starts in the next two hours
+const tripCD = o => !o.walkOnly && S.planDay===todayType() && o.leave - nowSec() > -600 && o.leave - nowSec() < 7200;
 const minsAway = t => { const m = Math.round((t - nowSec())/60); return m <= 0 ? "now" : m < 60 ? m + " min" : fmtT(t); };
 function depRows(list, opts={}){
   return list.slice(0, opts.max||8).map(g => { const R=RT(g.route);
-    return `<div class="dep"><button class="rchips" data-route="${g.route}" data-head="${g.head}" style="all:unset;cursor:pointer">${chip(g.route)}</button><span class="lbl">${esc(headText(opts.day, g.head) || R[1])}<div>${opts.sub ? opts.sub(g) : ""}</div></span><span class="times">${g.items.slice(0,3).map(it => (opts.rel && it.t - nowSec() < 3600 ? minsAway(it.t) : fmtT(it.t)) + delayBadge(it)).join("<br>")}</span></div>`; }).join(""); }
+    return `<div class="dep"><button class="rchips" data-route="${g.route}" data-head="${g.head}" style="all:unset;cursor:pointer">${chip(g.route)}</button><span class="lbl">${esc(headText(opts.day, g.head) || R[1])}<div>${opts.sub ? opts.sub(g) : ""}</div></span><span class="times">${g.items.slice(0,3).map(it => (opts.rel && it.t - nowSec() < 3600 ? cd(it.t) : fmtT(it.t)) + delayBadge(it)).join("<br>")}</span></div>`; }).join(""); }
 function alertHTML(al){ if(!al.length) return ""; const one = a => `<details class="alert"><summary>${WARN_SVG}<span>${esc(a.head)}</span></summary>${a.desc ? `<p>${esc(a.desc)}</p>` : ""}</details>`;
   if(al.length <= 2) return `<div class="alerts">${al.map(one).join("")}</div>`;
   return `<div class="alerts"><details class="alert"><summary>${WARN_SVG}<span>${al.length} service alerts for these buses</span></summary><div class="alerts" style="margin:8px 0 0">${al.map(one).join("")}</div></details></div>`; }
@@ -431,7 +447,8 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
       S.opts.map((o,k) => { const dur = mins(o.arrive - o.leave), chain = o.legs.map(l => l.type==="ride" ? chip(l.route) : `<span class="wk">${WALK_ICO}${mins((l.d ?? l.dur*WALK/60)/WALK*60)}</span>`).join("<i>›</i>");
         const r0 = o.rides[0], live = r0 && r0.live ? ` · bus ${Math.abs(r0.live.delay)<60? "on time" : r0.live.delay>0? Math.round(r0.live.delay/60)+" min late" : -Math.round(r0.live.delay/60)+" min early"}<span class="livetag">live</span>` : "";
         return `<div class="opt ${k===S.opt?"on":""}"><button data-opt="${k}" aria-expanded="${k===S.opt}"><div class="ohead"><b>${fmtT(o.leave)} – ${fmtT(o.arrive)}</b><span>${dur} min</span></div><div class="ochain">${chain}</div>
-          <div class="onote">${o.walkOnly? "Walk the whole way" : `Leave by ${fmtT(o.leave)} · ${o.rides.length>1? (o.rides.length-1)+" transfer"+(o.rides.length>2?"s":"") : "no transfers"}${live}`}</div></button>${k===S.opt ? legsHTML(o, day) : ""}</div>`; }).join("");
+          ${tripCD(o) ? (() => { const r0=o.rides[0], bt = r0.live ? r0.live.t : r0.dep, lt = o.leave + Math.min(0, bt - r0.dep);
+            return `<div class="ocd"><span>${WALK_ICO}Leave ${cd(lt, "leave")}</span><span>${chip(r0.route)} bus ${cd(bt, "in")}</span></div>`; })() : ""}<div class="onote">${o.walkOnly? "Walk the whole way" : `Leave by ${fmtT(o.leave)} · ${o.rides.length>1? (o.rides.length-1)+" transfer"+(o.rides.length>2?"s":"") : "no transfers"}${live}`}</div></button>${k===S.opt ? legsHTML(o, day) : ""}</div>`; }).join("");
     return; }
   // no trip yet: buses within a 10-minute walk of the start
   if(!S.from){ el.innerHTML = `<p class="empty">Pick a start and a destination: type an address, a place like a library or restaurant, or a stop number. Or just tap the map, once for the start and once for where you're going. You can drag either pin to fine-tune it.</p>`; return; }
@@ -454,7 +471,7 @@ function legsHTML(o, day){ const rows=[];
       else rows.push(walkRow(fmtT(l.t0), `Get off at ${esc(D.stops[l.a].name)}`, `Walk ${m} min to your destination` + h)); }
     else if(l.type==="xfer"){ rows.push(walkRow("", "Transfer", `Walk ${mins(l.dur)} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})` + hillNote(l))); }
     else { const R=RT(l.route), n=Math.max(1,(l.via||[]).length-1), lt = l.live ? `<br><span style="font-size:10px">${fmtT(l.live.t)}</span>` : "";
-      rows.push(`<div class="leg" ${lg(i)} style="--c:${R[2]}"><span class="t">${fmtT(l.dep)}${lt}</span><span class="rail"><i></i></span><span class="d">${chip(l.route)} <b>${esc(headText(day,l.head) || R[1])}</b>${l.live? delayBadge(l.live) : ""}<div>From ${esc(D.stops[l.a].name)} (#${D.stops[l.a].code}) · ${n} stop${n>1?"s":""} · ${mins(l.arr-l.dep)} min</div>${l.stay ? `<div>At ${esc(D.stops[l.stay.si].name)} it continues as ${esc(headText(day,l.head2) || R[1])}${l.stay.wait>90 ? ` after about ${mins(l.stay.wait)} min` : ""}. Stay on, or board the next ${esc(R[0])} there.</div>` : ""}
+      rows.push(`<div class="leg" ${lg(i)} style="--c:${R[2]}"><span class="t">${fmtT(l.dep)}${lt}</span><span class="rail"><i></i></span><span class="d">${chip(l.route)} <b>${esc(headText(day,l.head) || R[1])}</b>${l.live? delayBadge(l.live) : ""}${tripCD(o) ? `<div class="cdl">Bus ${cd(l.live ? l.live.t : l.dep, "in")}</div>` : ""}<div>From ${esc(D.stops[l.a].name)} (#${D.stops[l.a].code}) · ${n} stop${n>1?"s":""} · ${mins(l.arr-l.dep)} min</div>${l.stay ? `<div>At ${esc(D.stops[l.stay.si].name)} it continues as ${esc(headText(day,l.head2) || R[1])}${l.stay.wait>90 ? ` after about ${mins(l.stay.wait)} min` : ""}. Stay on, or board the next ${esc(R[0])} there.</div>` : ""}
         <details><summary>Stops on this ride</summary><ol>${(l.via||[]).map(([si,t]) => `<li>${fmtT(t)} · ${esc(D.stops[si].name)}</li>`).join("")}</ol></details></span></div>`); } }
   i = "end"; rows.push(`<div class="leg walk" ${lg("end")}><span class="t">${fmtT(o.arrive)}</span><span class="rail"><i style="--c:var(--ink);border-radius:50% 50% 50% 0"></i></span><span class="d"><b>Arrive</b><div>${esc(S.to.label)}</div></span></div>`);
   return `<div class="legs">${rows.join("")}</div>`; }
@@ -649,6 +666,6 @@ async function boot(){
   if(P.get("stop")){ const s=D.stops.find(x=>x.code===P.get("stop")); if(s) S.stop=s.i; }
   setTab(P.get("tab") || (S.route!=null ? "routes" : S.stop!=null ? "stops" : "plan"));
   if(S.from && S.to) runPlan(); else if(S.tab==="routes" && S.route!=null) openRoute(S.route); else if(S.tab==="stops" && S.stop!=null) openStop(S.stop);
-  startLive();
+  startLive(); setInterval(tickCD, 1000);
 }
 function showSuggSel(){ document.querySelectorAll("#sugg li[data-k]").forEach((li,k) => li.setAttribute("aria-selected", k===sActive)); }
