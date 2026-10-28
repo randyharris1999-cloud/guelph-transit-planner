@@ -329,6 +329,7 @@ footer{font-size:11px;color:var(--muted);margin-top:auto}
 .cd.due{color:#fff;background:var(--cd);border-radius:5px;padding:0 5px}
 .cd.gone{opacity:.45;font-weight:400;text-decoration:line-through}
 .dep .times .cd{font-size:13px}
+.dep .times .arr{font-family:var(--f-body);font-size:12px;font-weight:600;color:var(--cd)}
 .ocd{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;font-size:13px;color:var(--ink)}
 .ocd span{display:inline-flex;align-items:center;gap:5px}
 .ocd .rchip{font-size:12px;min-width:0;padding:1px 5px}
@@ -768,7 +769,7 @@ const tripCD = o => !o.walkOnly && S.planDay===todayType() && o.leave - nowSec()
 const minsAway = t => { const m = Math.round((t - nowSec())/60); return m <= 0 ? "now" : m < 60 ? m + " min" : fmtT(t); };
 function depRows(list, opts={}){
   return list.slice(0, opts.max||8).map((g,gi) => { const R=RT(g.route);
-    return `<div class="dep"><button class="rchips" data-route="${g.route}" data-head="${g.head}" style="all:unset;cursor:pointer">${chip(g.route)}</button><span class="lbl">${esc(headText(opts.day, g.head) || R[1])}<div>${opts.sub ? opts.sub(g) : ""}</div></span><span class="times">${g.items.slice(0,3).map((it,ii) => (opts.rel && it.t - nowSec() < 3600 ? (gi===0 && ii===0 ? cd(it.t) : minsAway(it.t)) : fmtT(it.t)) + delayBadge(it)).join("<br>")}</span></div>`; }).join(""); }
+    return `<div class="dep"><button class="rchips" data-route="${g.route}" data-head="${g.head}" style="all:unset;cursor:pointer">${chip(g.route)}</button><span class="lbl">${esc(headText(opts.day, g.head) || R[1])}<div>${opts.sub ? opts.sub(g) : ""}</div></span><span class="times">${g.items.slice(0,3).map((it,ii) => (opts.arrives ? (ii===0 && it.t - nowSec() < 3600 ? `<span class="arr">Arrives in: ${cd(it.t)}</span>` : fmtT(it.t)) : opts.rel && it.t - nowSec() < 3600 ? minsAway(it.t) : fmtT(it.t)) + delayBadge(it)).join("<br>")}</span></div>`; }).join(""); }
 function alertHTML(al){ if(!al.length) return ""; const one = a => `<details class="alert"><summary>${WARN_SVG}<span>${esc(a.head)}</span></summary>${a.desc ? `<p>${esc(a.desc)}</p>` : ""}</details>`;
   if(al.length <= 2) return `<div class="alerts">${al.map(one).join("")}</div>`;
   return `<div class="alerts"><details class="alert"><summary>${WARN_SVG}<span>${al.length} service alerts for these buses</span></summary><div class="alerts" style="margin:8px 0 0">${al.map(one).join("")}</div></details></div>`; }
@@ -1171,7 +1172,7 @@ function renderStop(){ if(S.tab!=="stops") return; const el=$("stopOut");
     <div class="rchips">${routes.map(ri => `<button data-route="${ri}" title="Route ${esc(RT(ri)[0])} ${esc(RT(ri)[1])}">${chip(ri)}</button>`).join("")}</div>
     <div class="acts"><button data-tripfrom="${si}">Trip from here</button><button data-tripto="${si}">Trip to here</button></div></div>
     ${alertHTML(al)}
-    <div class="sec" style="margin-top:14px"><h3>Next buses <em>${liveOK(day)? 'next 90 min<span class="livetag">live</span>' : "next 90 min, scheduled"}</em></h3><div class="deps">${list.length ? depRows(list, {day, rel:true, max:12, sub:() => ""}) : `<p class="empty">No departures in the next 90 minutes.</p>`}</div></div>`; }
+    <div class="sec" style="margin-top:14px"><h3>Next buses <em>${liveOK(day)? 'next 90 min<span class="livetag">live</span>' : "next 90 min, scheduled"}</em></h3><div class="deps">${list.length ? depRows(list, {day, arrives:true, max:12, sub:() => ""}) : `<p class="empty">No departures in the next 90 minutes.</p>`}</div></div>`; }
 function stopRowHTML(si, dist){ const s=D.stops[si], rs=[...idx(liveDay()).sRoutes[si]].sort((a,b)=>(parseInt(RT(a)[0])||999)-(parseInt(RT(b)[0])||999));
   return `<button data-stop="${si}"><span>${esc(s.name)}<br><small>#${esc(s.code)}${dist? " · "+dist : ""}</small></span><span class="rs">${rs.slice(0,6).map(ri=>chip(ri)).join("")}</span></button>`; }
 function openStop(si, {pan=true}={}){ S.bus=null; $("busOut").hidden=true; S.stop=si; $("stopQ").value=""; setTab("stops");
