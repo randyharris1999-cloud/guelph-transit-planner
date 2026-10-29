@@ -170,6 +170,13 @@
 .cd.gone{opacity:.45;font-weight:400;text-decoration:line-through}
 .dep .times .cd{font-size:13px}
 .dep .times .arr{font-family:var(--f-body);font-size:12px;font-weight:600;color:var(--cd)}
+.ohead.hasfind{display:grid;grid-template-columns:1fr auto;grid-template-areas:"t f" "t d";column-gap:8px;row-gap:3px;align-items:center}
+.ohead.hasfind>b{grid-area:t}.ohead.hasfind>.findbus{grid-area:f}.ohead.hasfind>span:last-child{grid-area:d;text-align:right}
+.findbus{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-body)!important;font-size:13px!important;font-weight:700;color:var(--accent-text)!important;border:1.5px solid var(--accent);border-radius:99px;padding:3px 10px 3px 7px;background:var(--panel);cursor:pointer;white-space:nowrap;align-self:center}
+.findbus:hover{background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.findbus:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.findbus svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.findbus.none{color:var(--muted)!important;border-color:var(--rule)}
 .ocd{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;font-size:13px;color:var(--ink)}
 .ocd span{display:inline-flex;align-items:center;gap:5px}
 .ocd .rchip{font-size:12px;min-width:0;padding:1px 5px}

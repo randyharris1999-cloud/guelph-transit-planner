@@ -446,7 +446,7 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
     el.innerHTML = `<div class="sec"><h3>${S.opts.length} way${S.opts.length>1?"s":""} to go <em>${S.when==="now"? "leaving now" : {weekday:"Weekday",saturday:"Saturday",sunday:"Sunday"}[S.day]+" from "+fmtT(S.t)}</em></h3></div>` +
       S.opts.map((o,k) => { const dur = mins(o.arrive - o.leave), chain = o.legs.map(l => l.type==="ride" ? chip(l.route) : `<span class="wk">${WALK_ICO}${mins((l.d ?? l.dur*WALK/60)/WALK*60)}</span>`).join("<i>›</i>");
         const r0 = o.rides[0], live = r0 && r0.live ? ` · bus ${Math.abs(r0.live.delay)<60? "on time" : r0.live.delay>0? Math.round(r0.live.delay/60)+" min late" : -Math.round(r0.live.delay/60)+" min early"}<span class="livetag">live</span>` : "";
-        return `<div class="opt ${k===S.opt?"on":""}"><button data-opt="${k}" aria-expanded="${k===S.opt}"><div class="ohead"><b>${fmtT(o.leave)} – ${fmtT(o.arrive)}</b><span>${dur} min</span></div><div class="ochain">${chain}</div>
+        return `<div class="opt ${k===S.opt?"on":""}"><button data-opt="${k}" aria-expanded="${k===S.opt}"><div class="ohead${tripCD(o) && liveOK(S.planDay) ? " hasfind" : ""}"><b>${fmtT(o.leave)} – ${fmtT(o.arrive)}</b>${tripCD(o) && liveOK(S.planDay) ? `<span class="findbus" data-findbus="${k}" role="button" tabindex="0" aria-label="Find this bus on the map">${FINDBUS}</span>` : ""}<span>${dur} min</span></div><div class="ochain">${chain}</div>
           ${tripCD(o) ? (() => { const r0=o.rides[0], bt = r0.live ? r0.live.t : r0.dep;
             return `<div class="ocd"><span>${chip(r0.route)} bus ${cd(bt, "in")}</span></div>`; })() : ""}<div class="onote">${o.walkOnly? "Walk the whole way" : `Leave by ${fmtT(o.leave)} · ${o.rides.length>1? (o.rides.length-1)+" transfer"+(o.rides.length>2?"s":"") : "no transfers"}${live}`}</div></button>${k===S.opt ? legsHTML(o, day) : ""}</div>`; }).join("");
     return; }
@@ -537,6 +537,17 @@ function openRoute(ri, head=null){ S.bus=null; $("busOut").hidden=true; S.route=
   const b=L.latLngBounds([]); for(const sh of D.shapes) if(sh.route===ri) sh.xs.forEach((x,j) => b.extend(unmerc(x, sh.ys[j]))); if(b.isValid()) map.fitBounds(b.pad(.05)); }
 
 /* ---------- BUS ---------- */
+/* ---------- "Find bus": show the live bus for a trip option's first ride ---------- */
+const FINDBUS = `<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="2.5"/><path d="M5 10h14 M8 20v-3 M16 20v-3"/></svg>Find bus`;
+function findBus(k){ const o=S.opts && S.opts[k], r=o && o.rides[0]; if(!r) return null;
+  for(const st of VS.values()) if(st.info && st.info.day===S.planDay && st.info.ti===r.ti) return st.id;
+  return null; }
+function goFindBus(el){ const id=findBus(+el.dataset.findbus), mk = id!=null && LV.markers.get(id);
+  if(!mk){ el.textContent="Not on the road yet"; el.classList.add("none"); clearTimeout(el._t); el._t=setTimeout(() => { el.innerHTML=FINDBUS; el.classList.remove("none"); }, 3000); return; }
+  // the bus card opens at the top of the panel; keep this trip where it was on screen
+  const k=el.dataset.findbus, y0=el.getBoundingClientRect().top;
+  selectBus(id); map.setView(mk.getLatLng(), Math.max(map.getZoom(), 16));
+  const el2=document.querySelector(`[data-findbus="${k}"]`); if(el2){ const dy=el2.getBoundingClientRect().top-y0; if(Math.abs(dy)>1){ const sc=$("panel"); if(sc.scrollHeight>sc.clientHeight+1 && getComputedStyle(sc).overflowY!=="visible") sc.scrollTop+=dy; else window.scrollBy(0,dy); } } }
 function selectBus(id){ S.bus=id; renderBus(); redraw(); }
 function renderBus(){ const el=$("busOut"); const st = S.bus && VS.get(S.bus); if(!st || !st.info){ el.hidden=true; S.bus=null; return; }
   const {R, head, delay, day, ti} = st.info, ri=D.transit.routes.indexOf(R), now=nowSec(), q = ti!=null ? (tripSeq(day).get(ti)||[]) : [], dl=delay||0;
@@ -625,8 +636,9 @@ async function boot(){
   $("tabPlan").onclick = () => setTab("plan"); $("tabRoutes").onclick = () => setTab("routes"); $("tabStops").onclick = () => setTab("stops");
   $("stopQ").addEventListener("input", () => { S.stop=null; renderStop(); redraw(); });
   // one delegated handler for everything clickable in the panel
-  $("panel").addEventListener("keydown", e => { const t=e.target.closest("[data-leg]"); if(t && (e.key==="Enter" || e.key===" ")){ e.preventDefault(); t.click(); } });
-  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-leg],[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
+  $("panel").addEventListener("keydown", e => { const t=e.target.closest("[data-findbus],[data-leg]"); if(t && (e.key==="Enter" || e.key===" ")){ e.preventDefault(); e.stopPropagation(); t.dataset.findbus!=null ? goFindBus(t) : t.click(); } });
+  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-findbus],[data-leg],[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
+    if(t.dataset.findbus!=null){ e.preventDefault(); goFindBus(t); return; }
     if(t.dataset.opt!=null){ const k=+t.dataset.opt; S.opt=k; S.leg=null; renderPlan(); fitTrip(); redraw(); return; }
     if(t.dataset.leg!=null){ if(e.target.closest("details")) return; showLeg(t.dataset.leg==="end" ? "end" : +t.dataset.leg); return; }
     if(t.id==="routeX"){ S.route=null; renderRoutes(); redraw(); syncURL(); return; }
