@@ -63,11 +63,11 @@
 .leg .hill{font-family:var(--f-mono);font-size:14px;font-weight:500;padding:0 5px;border-radius:4px;background:var(--chip)}
 .leg .hill.up{color:var(--warn)}
 .leg .d details ol{margin:4px 0 0;padding-left:18px;color:var(--muted)}
-.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px}
-#rgrid2{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+#rgrid2{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
 .rbadge{overflow:visible}
-.rbadge{font:inherit;font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1;padding:10px 2px;border:0;border-radius:8px;cursor:pointer;text-align:center;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
-.rbadge small{display:block;font-family:var(--f-body);font-weight:500;font-size:12.5px;margin-top:3px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px}
+.rbadge{font:inherit;font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1;padding:10px 4px 9px;border:0;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:74px;cursor:pointer;text-align:center;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.rbadge small{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-family:var(--f-body);font-weight:600;font-size:14px;line-height:1.2;margin-top:5px;opacity:.95;white-space:normal;overflow:hidden;overflow-wrap:anywhere;padding:0 2px}
 .rbadge[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
 .rbadge:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .rbadge .nb{position:absolute;top:-5px;right:-5px;font-family:var(--f-mono);font-size:12px;font-weight:500;min-width:15px;height:15px;border-radius:8px;background:var(--brand-green);color:#06230f;display:grid;place-items:center;padding:0 3px;box-sizing:border-box;border:2px solid var(--panel)}
@@ -158,7 +158,7 @@
 .hub .hi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .hub span{min-width:0}
 .hub b{display:block;font-size:16px;font-weight:700;line-height:1.2}
-.hub small{display:block;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hub small{display:block;font-size:14px;color:var(--muted);line-height:1.2}
 .hub[aria-pressed="true"]{border-color:var(--hc);box-shadow:0 0 0 1px var(--hc);background:color-mix(in srgb,var(--hc) 10%,var(--bg))}
 #hubUG{--hc:var(--accent);--hk:var(--accent-ink)}
 #hubDT{--hc:var(--brand-green);--hk:#06230f}
@@ -170,9 +170,10 @@
 .cd.gone{opacity:.45;font-weight:400;text-decoration:line-through}
 .dep .times .cd{font-size:16px}
 .dep .times .arr{font-family:var(--f-body);font-size:15px;font-weight:600;color:var(--cd)}
-.ohead.hasfind{display:grid;grid-template-columns:1fr auto;grid-template-areas:"t f" "t d";column-gap:8px;row-gap:3px;align-items:center}
-.ohead.hasfind>b{grid-area:t}.ohead.hasfind>.findbus{grid-area:f}.ohead.hasfind>span:last-child{grid-area:d;text-align:right}
-.findbus{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-body)!important;font-size:16px!important;font-weight:700;color:var(--accent-text)!important;border:1.5px solid var(--accent);border-radius:99px;padding:3px 10px 3px 7px;background:var(--panel);cursor:pointer;white-space:nowrap;align-self:center}
+.findbus{float:right;margin:8px 0 0 10px}
+.ohead{align-items:center}.ohead b{white-space:nowrap}.ohead span{white-space:nowrap}
+@media (max-width:420px){.ohead b{font-size:22px}.ohead span{font-size:14px;letter-spacing:-.02em}}
+.findbus{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-body)!important;font-size:16px!important;font-weight:700;color:var(--accent-text)!important;border:1.5px solid var(--accent);border-radius:99px;padding:3px 9px 3px 6px;background:var(--panel);cursor:pointer;white-space:nowrap;align-self:center}
 .findbus:hover{background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
 .findbus:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .findbus svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -217,14 +218,15 @@ html,body{overflow-x:clip;max-width:100%}
       <button role="tab" id="tabStops" aria-selected="false" aria-controls="pStops"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>Stops</button>
     </div>
 
+      <div class="hubs" id="hubs" role="group" aria-label="One-tap trips">
+        <button class="hub" id="hubUG" data-hub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small>University Centre</small></span></button>
+        <button class="hub" id="hubDT" data-hub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small>Central Station</small></span></button>
+      </div>
+
     <section id="busOut" class="buscard" hidden></section>
 
     <!-- PLAN -->
     <section id="pPlan" role="tabpanel" aria-labelledby="tabPlan">
-      <div class="hubs" role="group" aria-label="One-tap trips">
-        <button class="hub" id="hubUG" data-hub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small>University Centre</small></span></button>
-        <button class="hub" id="hubDT" data-hub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small>Central Station</small></span></button>
-      </div>
       <div class="planner">
         <div class="pf"><span class="pdot" aria-hidden="true"></span><input id="fromQ" type="text" autocomplete="off" placeholder="Start: address, place or stop" aria-label="Start"><button class="ibtn" id="locBtn" aria-label="Use my location" title="Use my location"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3"/></svg></button></div>
         <div class="pf"><span class="pdot to" aria-hidden="true"></span><input id="toQ" type="text" autocomplete="off" placeholder="Where to? Address, park, library…" aria-label="Destination"><button class="ibtn" id="pickBtn" aria-label="Choose the destination on the map" title="Choose on the map"><svg viewBox="0 0 24 24"><path d="M12 21s6-5.3 6-10.3a6 6 0 0 0-12 0C6 15.7 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.2"/></svg></button></div>

@@ -390,7 +390,7 @@ function tapPoint(ll){ const ai=nearestAddress(ll.lat, ll.lng); if(ai>=0) return
   return epPoint(ll.lat, ll.lng, best ? "Point near " + best : "Map point"); }
 
 /* ---------- tabs ---------- */
-function setTab(t){ S.tab=t; for(const [k,id,p] of [["plan","tabPlan","pPlan"],["routes","tabRoutes","pRoutes"],["stops","tabStops","pStops"]]){ $(id).setAttribute("aria-selected", k===t); $(p).hidden = k!==t; }
+function setTab(t){ S.tab=t; for(const [k,id,p] of [["plan","tabPlan","pPlan"],["routes","tabRoutes","pRoutes"],["stops","tabStops","pStops"]]){ $(id).setAttribute("aria-selected", k===t); $(p).hidden = k!==t; } $("hubs").hidden = t==="stops";
   if(t==="routes") renderRoutes(); if(t==="stops") renderStop(); if(t==="plan") renderPlan();
   setPin("from", t==="plan" ? S.from : null); setPin("to", t==="plan" ? S.to : null); redraw(); syncURL(); }
 
@@ -446,7 +446,7 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
     el.innerHTML = `<div class="sec"><h3>${S.opts.length} way${S.opts.length>1?"s":""} to go <em>${S.when==="now"? "leaving now" : {weekday:"Weekday",saturday:"Saturday",sunday:"Sunday"}[S.day]+" from "+fmtT(S.t)}</em></h3></div>` +
       S.opts.map((o,k) => { const dur = mins(o.arrive - o.leave), chain = o.legs.map(l => l.type==="ride" ? chip(l.route) : `<span class="wk">${WALK_ICO}${mins((l.d ?? l.dur*WALK/60)/WALK*60)}</span>`).join("<i>›</i>");
         const r0 = o.rides[0], live = r0 && r0.live ? ` · bus ${Math.abs(r0.live.delay)<60? "on time" : r0.live.delay>0? Math.round(r0.live.delay/60)+" min late" : -Math.round(r0.live.delay/60)+" min early"}<span class="livetag">live</span>` : "";
-        return `<div class="opt ${k===S.opt?"on":""}"><button data-opt="${k}" aria-expanded="${k===S.opt}"><div class="ohead${tripCD(o) && liveOK(S.planDay) ? " hasfind" : ""}"><b>${fmtT(o.leave)} – ${fmtT(o.arrive)}</b>${tripCD(o) && liveOK(S.planDay) ? `<span class="findbus" data-findbus="${k}" role="button" tabindex="0" aria-label="Find this bus on the map">${FINDBUS}</span>` : ""}<span>${dur} min trip</span></div><div class="ochain">${chain}</div>
+        return `<div class="opt ${k===S.opt?"on":""}"><button data-opt="${k}" aria-expanded="${k===S.opt}"><div class="ohead"><b>${fmtT(o.leave)} – ${fmtT(o.arrive)}</b><span>${dur} min trip</span></div>${tripCD(o) && liveOK(S.planDay) ? `<span class="findbus" data-findbus="${k}" role="button" tabindex="0" aria-label="Find this bus on the map">${FINDBUS}</span>` : ""}<div class="ochain">${chain}</div>
           ${tripCD(o) ? (() => { const r0=o.rides[0], bt = r0.live ? r0.live.t : r0.dep;
             return `<div class="ocd"><span>${chip(r0.route)} bus ${cd(bt, "in")}</span></div>`; })() : ""}<div class="onote">${o.walkOnly? "Walk the whole way" : `Leave by ${fmtT(o.leave)} · ${o.rides.length>1? (o.rides.length-1)+" transfer"+(o.rides.length>2?"s":"") : "no transfers"}${live}`}</div></button>${k===S.opt ? legsHTML(o, day) : ""}</div>`; }).join("");
     return; }
@@ -480,7 +480,7 @@ function legsHTML(o, day){ const rows=[];
 function liveCounts(){ const m=new Map(); for(const st of VS.values()){ if(!st.info) continue; const ri=D.transit.routes.indexOf(st.info.R); m.set(ri,(m.get(ri)||0)+1); } return m; }
 function renderRoutes(){ if(S.tab!=="routes") return; const day=liveDay(), I=idx(day), cnt=liveCounts();
   const all = [...I.heads.keys()].sort((a,b) => { const A=RT(a)[0], B=RT(b)[0]; return (parseInt(A)||999)-(parseInt(B)||999) || A.localeCompare(B); });
-  const badge = ri => { const R=RT(ri); return `<button class="rbadge" data-route="${ri}" aria-pressed="${ri===S.route}" style="background:${R[2]};color:${routeInk(R)}${R[0].replace(/ U$/,"U").length>3? ";font-size:16px" : ""}" title="${esc(R[0]+" "+R[1])}">${esc(R[0].replace(/ U$/,"U"))}<small>${esc(R[1])}</small>${cnt.get(ri)? `<span class="nb">${cnt.get(ri)}</span>` : ""}</button>`; };
+  const badge = ri => { const R=RT(ri); return `<button class="rbadge" data-route="${ri}" aria-pressed="${ri===S.route}" style="background:${R[2]};color:${routeInk(R)}${R[0].replace(/ U$/,"U").length>3? ";font-size:21px" : ""}" title="${esc(R[0]+" "+R[1])}">${esc(R[0].replace(/ U$/,"U"))}<small>${esc(R[1])}</small>${cnt.get(ri)? `<span class="nb">${cnt.get(ri)}</span>` : ""}</button>`; };
   const reg = all.filter(regular), oth = all.filter(ri => !regular(ri) && !/charter/i.test(RT(ri)[1]));
   $("rgrid").innerHTML = reg.map(badge).join(""); $("rgrid2").innerHTML = oth.map(badge).join(""); $("otherHead").hidden = $("rgrid2").hidden = !oth.length;
   $("routeDay").textContent = ({weekday:"weekday",saturday:"Saturday",sunday:"Sunday"})[day] + " service";
