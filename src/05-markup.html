@@ -197,7 +197,7 @@ html,body{overflow-x:clip;max-width:100%}
   .app{display:flex;flex-direction:column;height:auto}
   #map{position:sticky!important;top:0;height:46vh;height:46dvh;z-index:10;border-bottom:1px solid var(--rule);order:-1;flex:none}
   .panel{padding-top:12px}
-  header h1{font-size:26px} header>p{display:none}
+  header h1{font-size:38px} header>p{display:none}
   .ptabs{position:static}
   .refresh{bottom:6px;font-size:14px}
   .leaflet-control-attribution{font-size:12px;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -221,6 +221,7 @@ html,body{overflow-x:clip;max-width:100%}
 }
 
 /* ---- bigger text: trip results, routes, stops ---- */
+@media (min-width:761px){header h1{font-size:42px}}
 .ptabs button{font-size:18px}
 .hub b{font-size:18px}.hub small{font-size:16px}
 .ohead{flex-wrap:wrap;row-gap:0}.ohead b{font-size:30px}.ohead span{font-size:17px}

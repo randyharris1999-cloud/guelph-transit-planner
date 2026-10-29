@@ -617,8 +617,7 @@ function useMe(){ const f=wantFrom; wantFrom=null; const ll=meMarker.getLatLng()
 /* ---------- URL ---------- */
 function syncURL(){ const p=new URLSearchParams(); if(PREVIEW) p.set("preview","1");
   if(S.tab!=="plan") p.set("tab", S.tab);
-  if(S.from && S.from.label!=="My location") p.set("from", S.from.hub ? S.from.hub : S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
-  if(S.to) p.set("to", S.to.hub ? S.to.hub : S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
+  // start and destination are not kept in the address bar, so a reload always opens with both boxes empty
   if(S.tab==="routes" && S.route!=null) p.set("route", RT(S.route)[0]); if(S.tab==="routes" && S.rhub) p.set("going", S.rhub); if(S.tab==="stops" && S.stop!=null) p.set("stop", D.stops[S.stop].code);
   history.replaceState(null, "", location.pathname + (p.toString()? "?"+p : "")); }
 function resolve(text){ if(!text) return null; if(HUBS[text.toLowerCase()]) return hubEP(text.toLowerCase()); const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
@@ -671,7 +670,11 @@ async function boot(){
   document.addEventListener("keydown", e => { if(e.key==="Escape" && S.pick){ S.pick=null; updatePickHint(); } });
   $("walkChk").onchange = e => { S.showWalk=e.target.checked; redraw(); };
   for(const f of ["from","to"]){ const q=$(f+"Q");
-    q.addEventListener("input", () => showSugg(f)); q.addEventListener("focus", () => { if(!q.value) showSugg(f); });
+    q.addEventListener("input", () => { if(!q.value && S[f]){ S[f]=null; S.opts=null; S.opt=0; setPin(f, null); renderPlan(); redraw(); updateHubs(); } showSugg(f); });
+    let justFocused=false;
+    q.addEventListener("focus", () => { if(!q.value){ showSugg(f); return; } justFocused=true; q.select(); setTimeout(() => { q.setSelectionRange(0, q.value.length); justFocused=false; }, 0); });
+    q.addEventListener("mouseup", e => { if(justFocused){ e.preventDefault(); justFocused=false; } });
+    q.addEventListener("touchend", () => { if(document.activeElement===q && q.value && q.selectionStart===q.selectionEnd && justFocused) setTimeout(() => q.setSelectionRange(0, q.value.length), 0); });
     q.addEventListener("keydown", e => { if($("sugg").hidden) return;
       if(e.key==="ArrowDown"){ sActive=Math.min(sugg.length-1,sActive+1); showSuggSel(); e.preventDefault(); }
       else if(e.key==="ArrowUp"){ sActive=Math.max(0,sActive-1); showSuggSel(); e.preventDefault(); }

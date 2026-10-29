@@ -27,7 +27,7 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - Hills: soft shaded relief from the LIDAR ground model, on by default (the Hills chip turns it off). It fades as you zoom in close.
 - Optional live City layers: road closures and sidewalk snow clearing.
 
-Links can be shared: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
+The start and destination boxes are empty every time the page opens. Links can still be shared by adding them: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
 
 ## What's in the folder
 
