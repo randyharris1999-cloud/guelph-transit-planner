@@ -160,8 +160,10 @@
 .hub b{display:block;font-size:16px;font-weight:700;line-height:1.2}
 .hub small{display:block;font-size:14px;color:var(--muted);line-height:1.2}
 .hub[aria-pressed="true"]{border-color:var(--hc);box-shadow:0 0 0 1px var(--hc);background:color-mix(in srgb,var(--hc) 10%,var(--bg))}
-#hubUG{--hc:var(--accent);--hk:var(--accent-ink)}
-#hubDT{--hc:var(--brand-green);--hk:#06230f}
+#hubUG,.hub.ug{--hc:var(--accent);--hk:var(--accent-ink)}
+#hubDT,.hub.dt{--hc:var(--brand-green);--hk:#06230f}
+.rhubs{margin-bottom:10px}
+.rhubs .hub{gap:8px;padding:8px}.rhubs .hub b{font-size:17px;white-space:nowrap}
 .cd{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;color:var(--cd)}
 :root{--cd:#D0271D}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--cd:#FF6B5E}}
@@ -173,10 +175,10 @@
 .findbus{float:right;margin:8px 0 0 10px}
 .ohead{align-items:center}.ohead b{white-space:nowrap}.ohead span{white-space:nowrap}
 @media (max-width:420px){.ohead b{font-size:22px}.ohead span{font-size:14px;letter-spacing:-.02em}}
-.findbus{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-body)!important;font-size:16px!important;font-weight:700;color:var(--accent-text)!important;border:1.5px solid var(--accent);border-radius:99px;padding:3px 9px 3px 6px;background:var(--panel);cursor:pointer;white-space:nowrap;align-self:center}
+.findbus{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-body)!important;font-size:18px!important;font-weight:700;color:var(--accent-text)!important;border:1.5px solid var(--accent);border-radius:99px;padding:3px 9px 3px 6px;background:var(--panel);cursor:pointer;white-space:nowrap;align-self:center}
 .findbus:hover{background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
 .findbus:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.findbus svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.findbus svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .findbus.none{color:var(--muted)!important;border-color:var(--rule)}
 .ocd{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:7px;font-size:16px;color:var(--ink)}
 .ocd span{display:inline-flex;align-items:center;gap:5px}
@@ -201,10 +203,64 @@ html,body{overflow-x:clip;max-width:100%}
   .leaflet-control-attribution{font-size:12px;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .legend{min-width:0}
 }
+/* ---- pull the panel down to see just the map (phones) ---- */
+.grab,.peek{display:none}
+@media (max-width:760px){
+  .grab{all:unset;display:flex;justify-content:center;align-items:center;box-sizing:border-box;width:100%;height:26px;margin:-8px 0 -10px;cursor:grab;touch-action:none}
+  .grab span{display:block;width:44px;height:5px;border-radius:3px;background:var(--rule);margin:0 auto}
+  .grab:focus-visible span{background:var(--accent)}
+  .app.mapfull #map{height:calc(100dvh - 78px)}
+  .app.mapfull .panel>*:not(.grab):not(.peek){display:none!important}
+  .app.mapfull .panel{padding-block:10px 12px;gap:6px;min-height:78px;box-sizing:border-box}
+  .app.mapfull .peek{display:flex!important}
+  .peek{all:unset;box-sizing:border-box;width:100%;flex-direction:column;align-items:center;gap:1px;cursor:pointer;text-align:center;touch-action:none}
+  .peek b{font-size:18px;font-weight:700;color:var(--ink)}
+  .peek small{font-size:15px;color:var(--muted)}
+  #map.dragging{transition:none}
+  #map.settle{transition:height .22s ease}
+}
+
+/* ---- bigger text: trip results, routes, stops ---- */
+.ptabs button{font-size:18px}
+.hub b{font-size:18px}.hub small{font-size:16px}
+.ohead{flex-wrap:wrap;row-gap:0}.ohead b{font-size:30px}.ohead span{font-size:17px}
+.ochain{font-size:17px}.ochain .wk svg{width:16px;height:16px}
+.ochain .rchip{font-size:19px}
+.onote{font-size:17px}
+.ocd{font-size:19px}.ocd .rchip{font-size:18px}.ocd .cd{font-size:19px}
+.legs{padding:6px 12px 12px}
+.leg{grid-template-columns:80px 18px 1fr}
+.leg .t{font-size:17px;padding-top:10px}
+.leg .rail i{margin-top:13px}
+.leg .d{font-size:19px;line-height:1.35;padding:8px 0 11px}
+.leg .d div{font-size:17px}
+.leg .d .rchip{font-size:19px}
+.leg .d details,.leg .d details summary{font-size:17px}
+.leg[data-leg][aria-pressed="true"] .d>b::after{font-size:16px}
+.leg .hill{font-size:16px}
+.rlong{font-size:17px}
+.dirs button{font-size:17px}
+.facts small{font-size:15px}.facts b{font-size:22px}
+.slist .nm{font-size:18px}.slist .nm small{font-size:16px}.slist .nx{font-size:16px}
+.dep .lbl div{font-size:17px}.dep .times{font-size:17px}.dep .times .cd{font-size:18px}.dep .times .arr{font-size:17px}
+.stoph .code{font-size:17px}
+.near button{font-size:18px}.near button small{font-size:16px}.near .rs .rchip{font-size:17px}
+.acts button{font-size:17px}
+.empty{font-size:17px}.hint{font-size:16px}
+.sec h3{font-size:15px}
+.lrow{font-size:17px}.lrow small{font-size:16px}.lrow .st{font-size:15px}
+.alert{font-size:16px}.alert summary{font-size:17px}
+.mpop b{font-size:17px}.mpop button{font-size:17px}.mpop .pk{font-size:16px}
+.rbadge small{font-size:15px}
+.chk{font-size:17px}
+@media (max-width:420px){.ohead b{font-size:28px}.ohead span{font-size:16px;letter-spacing:-.02em}.leg{grid-template-columns:74px 18px 1fr}}
+
 </style>
 
 <div class="app">
   <aside class="panel" id="panel">
+    <button class="grab" id="grab" aria-label="Show just the map" aria-expanded="true"><span aria-hidden="true"></span></button>
+    <button class="peek" id="peek" hidden><b id="peekTxt">Show the trip</b><small>Pull up or tap</small></button>
     <header>
       <div class="brandbar" aria-hidden="true"><i></i><i></i></div>
       <h1>Guelph <span>Transit Planner</span></h1>
@@ -247,7 +303,11 @@ html,body{overflow-x:clip;max-width:100%}
     <section id="pRoutes" role="tabpanel" aria-labelledby="tabRoutes" hidden>
       <div id="routeOut"></div>
       <div class="sec" id="routeGridSec">
-        <h3>All routes <em id="routeDay"></em></h3>
+        <h3><span id="routeHead">All routes</span> <em id="routeDay"></em></h3>
+        <div class="hubs rhubs" role="group" aria-label="Routes going to">
+          <button class="hub ug" data-rhub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small class="rn">All routes</small></span></button>
+          <button class="hub dt" data-rhub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small class="rn">All routes</small></span></button>
+        </div>
         <div class="rgrid" id="rgrid"></div>
         <h3 style="margin-top:14px" id="otherHead">Other service</h3>
         <div class="rgrid" id="rgrid2"></div>

@@ -2,7 +2,7 @@
 const WALK_AREA = 10;                  // minutes, the walk area around the start
 const MAXW = 15 * WALK;                // longest walk to or from a bus, metres
 const cityWide = () => false;          // (labels module asks)
-const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, opt:0, route:null, rdir:null, stop:null, bus:null, when:"now", day:"weekday", t:8*3600, showWalk:true };
+const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, opt:0, route:null, rhub:null, rdir:null, stop:null, bus:null, when:"now", day:"weekday", t:8*3600, showWalk:true };
 let D = {}, map, base, legend, pins = {}, meMarker = null, meCircle = null;
 
 /* ---------- data ---------- */
@@ -250,6 +250,7 @@ function focus(){
   if(S.bus){ const st=VS.get(S.bus); if(st && st.info){ const ri=D.transit.routes.indexOf(st.info.R); return {routes:new Set([ri]), bus:st}; } }
   if(S.tab==="plan" && S.opts && S.opts[S.opt] && !S.opts[S.opt].walkOnly) return {routes:new Set(S.opts[S.opt].rides.map(r => r.route)), trip:S.opts[S.opt]};
   if(S.tab==="routes" && S.route != null) return {routes:new Set([S.route]), route:S.route};
+  if(S.tab==="routes" && S.rhub){ const r=hubRoutes(liveDay()); if(r) return {routes:r}; }
   if(S.tab==="stops" && S.stop != null) return {routes:idx(liveDay()).sRoutes[S.stop], stop:S.stop};
   return null; }
 function busFocus(){ const F=focus();
@@ -389,8 +390,40 @@ function tapPoint(ll){ const ai=nearestAddress(ll.lat, ll.lng); if(ai>=0) return
   for(const s of D.sseg) for(let j=0;j<s.xs.length;j++){ const d=(s.xs[j]-mx)**2+(s.ys[j]-my)**2; if(d<bd){ bd=d; best=s.name; } }
   return epPoint(ll.lat, ll.lng, best ? "Point near " + best : "Map point"); }
 
+/* ---------- phones: pull the panel down to see just the map, pull (or tap) it back up ---------- */
+const PEEK = 78;
+function phone(){ return matchMedia("(max-width:760px)").matches; }
+function peekText(){ if(S.tab==="plan" && S.opts && S.opts[S.opt]){ const o=S.opts[S.opt]; return `${fmtT(o.leave)} – ${fmtT(o.arrive)} · show the trip`; }
+  return ({plan:"Show the trip planner", routes:"Show the routes", stops:"Show the stops"})[S.tab]; }
+function setMapFull(on){ const app=document.querySelector(".app"), m=$("map");
+  m.classList.remove("dragging"); m.classList.add("settle"); m.style.height="";
+  app.classList.toggle("mapfull", on); $("peek").hidden=!on; $("grab").setAttribute("aria-expanded", !on);
+  if(on){ $("peekTxt").textContent = peekText(); window.scrollTo(0,0); }
+  setTimeout(() => { m.classList.remove("settle"); map.invalidateSize({pan:false}); }, 240); }
+function initPull(){
+  const panel=$("panel"), m=$("map");
+  $("grab").onclick = () => setMapFull(true); $("peek").onclick = () => setMapFull(false);
+  let y0=null, x0=0, h0=0, drag=false, dy=0;
+  panel.addEventListener("touchstart", e => { if(!phone() || e.touches.length!==1) return;
+    const full = document.querySelector(".app").classList.contains("mapfull");
+    // pull down from the top of the panel (or anywhere when the page is already at the top); never from a text box or menu
+    if(!full && (window.scrollY > 2 && !e.target.closest(".grab"))) return;
+    if(e.target.closest("input,select,textarea")) return;
+    y0=e.touches[0].clientY; x0=e.touches[0].clientX; h0=m.getBoundingClientRect().height; drag=false; dy=0; }, {passive:true});
+  panel.addEventListener("touchmove", e => { if(y0==null) return; const t=e.touches[0]; dy=t.clientY-y0; const dx=t.clientX-x0;
+    const full = document.querySelector(".app").classList.contains("mapfull");
+    if(!drag){ if(Math.abs(dy) < 8) return; if(Math.abs(dx) > Math.abs(dy) || (!full && dy<0) || (full && dy>0)){ y0=null; return; } drag=true; m.classList.add("dragging"); }
+    e.preventDefault();
+    const maxH = innerHeight - PEEK, minH = innerHeight*.46; m.style.height = Math.max(minH, Math.min(maxH, h0+dy)) + "px"; }, {passive:false});
+  const end = () => { if(y0==null) return; y0=null; if(!drag) return; drag=false;
+    const full = document.querySelector(".app").classList.contains("mapfull");
+    setMapFull(full ? !(dy < -40) : dy > 70); };
+  panel.addEventListener("touchend", end); panel.addEventListener("touchcancel", end);
+  addEventListener("resize", () => { if(!phone() && document.querySelector(".app").classList.contains("mapfull")) setMapFull(false); });
+}
+
 /* ---------- tabs ---------- */
-function setTab(t){ S.tab=t; for(const [k,id,p] of [["plan","tabPlan","pPlan"],["routes","tabRoutes","pRoutes"],["stops","tabStops","pStops"]]){ $(id).setAttribute("aria-selected", k===t); $(p).hidden = k!==t; } $("hubs").hidden = t==="stops";
+function setTab(t){ S.tab=t; for(const [k,id,p] of [["plan","tabPlan","pPlan"],["routes","tabRoutes","pRoutes"],["stops","tabStops","pStops"]]){ $(id).setAttribute("aria-selected", k===t); $(p).hidden = k!==t; } $("hubs").hidden = t!=="plan";
   if(t==="routes") renderRoutes(); if(t==="stops") renderStop(); if(t==="plan") renderPlan();
   setPin("from", t==="plan" ? S.from : null); setPin("to", t==="plan" ? S.to : null); redraw(); syncURL(); }
 
@@ -416,7 +449,7 @@ function goHub(k){ const ep=hubEP(k); if(!ep) return; hideSugg(); S.pick=null; i
   if(S.from) return;
   if("geolocation" in navigator){ $("planOut").innerHTML = `<p class="empty" id="locWait">Finding your location… or type a start above.</p>`; locate("from"); }
   else $("fromQ").focus(); }
-function updateHubs(){ for(const b of document.querySelectorAll(".hub")) b.setAttribute("aria-pressed", !!(S.to && S.to.hub===b.dataset.hub)); }
+function updateHubs(){ for(const b of document.querySelectorAll(".hub[data-hub]")) b.setAttribute("aria-pressed", !!(S.to && S.to.hub===b.dataset.hub)); }
 function setEnd(f, ep, {go=true, view=true}={}){ S[f]=ep; $(f+"Q").value = ep ? ep.label : ""; S.opts=null; S.opt=0;
   if(f==="from") S.walk = ep ? dijkstra([[ep.node, ep.conn]], (WALK_AREA+1)*WALK) : null;
   setPin(f, S.tab==="plan" ? ep : null);
@@ -477,11 +510,22 @@ function legsHTML(o, day){ const rows=[];
   return `<div class="legs">${rows.join("")}</div>`; }
 
 /* ---------- ROUTES ---------- */
+// every route that stops at a hub's platforms on this service day (cached per day)
+const _hubR = {};
+function hubRoutes(day){ return S.rhub ? hubRoutesFor(day, S.rhub) : null; }
+function hubRoutesFor(day, k){ const key=day+k; if(_hubR[key]) return _hubR[key];
+  const re=HUBS[k].re, I=idx(day), out=new Set();
+  D.stops.forEach((st,si) => { if(re.test(st.name) && I.sRoutes[si]) for(const ri of I.sRoutes[si]) out.add(ri); });
+  return _hubR[key]=out; }
 function liveCounts(){ const m=new Map(); for(const st of VS.values()){ if(!st.info) continue; const ri=D.transit.routes.indexOf(st.info.R); m.set(ri,(m.get(ri)||0)+1); } return m; }
 function renderRoutes(){ if(S.tab!=="routes") return; const day=liveDay(), I=idx(day), cnt=liveCounts();
   const all = [...I.heads.keys()].sort((a,b) => { const A=RT(a)[0], B=RT(b)[0]; return (parseInt(A)||999)-(parseInt(B)||999) || A.localeCompare(B); });
   const badge = ri => { const R=RT(ri); return `<button class="rbadge" data-route="${ri}" aria-pressed="${ri===S.route}" style="background:${R[2]};color:${routeInk(R)}${R[0].replace(/ U$/,"U").length>3? ";font-size:21px" : ""}" title="${esc(R[0]+" "+R[1])}">${esc(R[0].replace(/ U$/,"U"))}<small>${esc(R[1])}</small>${cnt.get(ri)? `<span class="nb">${cnt.get(ri)}</span>` : ""}</button>`; };
-  const reg = all.filter(regular), oth = all.filter(ri => !regular(ri) && !/charter/i.test(RT(ri)[1]));
+  const hubR = hubRoutes(day), shown = S.rhub && hubR ? all.filter(ri => hubR.has(ri)) : all;
+  for(const b of document.querySelectorAll("[data-rhub]")){ b.setAttribute("aria-pressed", b.dataset.rhub===S.rhub);
+    const n=hubRoutesFor(day, b.dataset.rhub); b.querySelector(".rn").textContent = n ? `${n.size} routes` : "All routes"; }
+  $("routeHead").textContent = S.rhub ? `Routes to ${S.rhub==="uofg" ? "U of G" : "Downtown"}` : "All routes";
+  const reg = shown.filter(regular), oth = shown.filter(ri => !regular(ri) && !/charter/i.test(RT(ri)[1]));
   $("rgrid").innerHTML = reg.map(badge).join(""); $("rgrid2").innerHTML = oth.map(badge).join(""); $("otherHead").hidden = $("rgrid2").hidden = !oth.length;
   $("routeDay").textContent = ({weekday:"weekday",saturday:"Saturday",sunday:"Sunday"})[day] + " service";
   const el=$("routeOut");
@@ -575,7 +619,7 @@ function syncURL(){ const p=new URLSearchParams(); if(PREVIEW) p.set("preview","
   if(S.tab!=="plan") p.set("tab", S.tab);
   if(S.from && S.from.label!=="My location") p.set("from", S.from.hub ? S.from.hub : S.from.stop!=null ? "stop "+D.stops[S.from.stop].code : /^(Map point|Point near)/.test(S.from.label) ? S.from.lat.toFixed(5)+","+S.from.lon.toFixed(5) : S.from.label);
   if(S.to) p.set("to", S.to.hub ? S.to.hub : S.to.stop!=null ? "stop "+D.stops[S.to.stop].code : /^(Map point|Point near)/.test(S.to.label) ? S.to.lat.toFixed(5)+","+S.to.lon.toFixed(5) : S.to.label);
-  if(S.tab==="routes" && S.route!=null) p.set("route", RT(S.route)[0]); if(S.tab==="stops" && S.stop!=null) p.set("stop", D.stops[S.stop].code);
+  if(S.tab==="routes" && S.route!=null) p.set("route", RT(S.route)[0]); if(S.tab==="routes" && S.rhub) p.set("going", S.rhub); if(S.tab==="stops" && S.stop!=null) p.set("stop", D.stops[S.stop].code);
   history.replaceState(null, "", location.pathname + (p.toString()? "?"+p : "")); }
 function resolve(text){ if(!text) return null; if(HUBS[text.toLowerCase()]) return hubEP(text.toLowerCase()); const ll=text.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/); if(ll) return epPoint(+ll[1], +ll[2], "Map point");
   const st=text.match(/^stop\s+(\w+)$/i); if(st){ const s=D.stops.find(x=>x.code===st[1]); return s? epStop(s.i) : null; }
@@ -619,7 +663,9 @@ async function boot(){
   $("goBtn").onclick = () => { if(!S.from){ $("fromQ").focus(); return; } if(!S.to){ $("toQ").focus(); return; } runPlan(); };
   $("swapBtn").onclick = () => { const a=S.from; S.from=null; setEnd("from", S.to, {go:false}); setEnd("to", a); };
   $("locBtn").onclick = () => locate("from");
-  for(const b of document.querySelectorAll(".hub")) b.onclick = () => goHub(b.dataset.hub);
+  for(const b of document.querySelectorAll(".hub[data-hub]")) b.onclick = () => goHub(b.dataset.hub);
+  for(const b of document.querySelectorAll("[data-rhub]")) b.onclick = () => { S.rhub = S.rhub===b.dataset.rhub ? null : b.dataset.rhub; renderRoutes(); redraw(); syncURL(); };
+  initPull();
   $("pickBtn").onclick = () => { S.pick = S.pick==="to" ? null : "to"; if(S.pick && S.tab!=="plan") setTab("plan"); updatePickHint(); };
   $("pickX").onclick = () => { S.pick=null; updatePickHint(); };
   document.addEventListener("keydown", e => { if(e.key==="Escape" && S.pick){ S.pick=null; updatePickHint(); } });
@@ -674,6 +720,7 @@ async function boot(){
   const P = new URLSearchParams(location.search);
   const f = resolve(P.get("from")), t = resolve(P.get("to"));
   if(f) setEnd("from", f, {go:false, view:!t}); if(t) setEnd("to", t, {go:false});
+  if(HUBS[P.get("going")]) S.rhub = P.get("going");
   if(P.get("route")){ const ri=D.transit.routes.findIndex(R => R[0].toLowerCase()===P.get("route").toLowerCase()); if(ri>=0){ S.route=ri; } }
   if(P.get("stop")){ const s=D.stops.find(x=>x.code===P.get("stop")); if(s) S.stop=s.i; }
   setTab(P.get("tab") || (S.route!=null ? "routes" : S.stop!=null ? "stops" : "plan"));
