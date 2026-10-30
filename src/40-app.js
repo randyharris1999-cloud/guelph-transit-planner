@@ -645,7 +645,7 @@ function startLive(){
 /* ---------- boot ---------- */
 async function boot(){
   if(PREVIEW) $("previewTag").hidden = false;
-  map = L.map("map", {zoomControl:true, minZoom:11, maxZoom:19, preferCanvas:true}).setView([43.5448,-80.2482], 14);
+  map = L.map("map", {zoomControl:true, minZoom:11, maxZoom:19, preferCanvas:true}).setView([43.5450,-80.2490], 16);   // opening view: downtown at street scale
   map.attributionControl.setPrefix(false); map.attributionControl.addAttribution("City of Guelph Open Data · Guelph Transit · © OpenStreetMap contributors");
   try { await load(); } catch(err){ $("loading").textContent = "Couldn't load the map data. Refresh the page to try again."; return; }
   $("loading").remove(); buildPlaces();
