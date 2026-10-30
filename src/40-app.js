@@ -6,13 +6,30 @@ const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, op
 let D = {}, map, base, legend, pins = {}, meMarker = null, meCircle = null;
 
 /* ---------- data ---------- */
+// file sizes in bytes, written in by scripts/build_html.py so the loading screen can show real progress
+const DATA_BYTES = /*DATA_BYTES*/{};
+const SPL = { got:0, sum:Object.values(DATA_BYTES).reduce((a,b) => a+b, 0) };
+function splashAdd(n){ SPL.got += n; const f = $("splashFill"); if(f && SPL.sum) f.style.transform = `scaleX(${Math.min(1, SPL.got/SPL.sum).toFixed(3)})`; }
+function hideSplash(){ const s = $("splash"); if(!s) return; splashAdd(SPL.sum);
+  requestAnimationFrame(() => requestAnimationFrame(() => { s.classList.add("done"); setTimeout(() => s.remove(), 350); })); }
+function splashError(){ $("splashMsg").textContent = "Couldn't load the map data. Check your connection and try again.";
+  $("splashRetry").hidden = false; $("splashRetry").onclick = () => location.reload(); }
+// fetch a data file, counting bytes as they arrive
+async function getData(n){
+  const r = await fetch("data/" + n + ".json"); if(!r.ok) throw new Error(n);
+  if(!r.body || !r.body.getReader){ const j = await r.json(); splashAdd(DATA_BYTES[n] || 0); return j; }
+  const rd = r.body.getReader(), parts = []; let len = 0;
+  for(;;){ const {done, value} = await rd.read(); if(done) break; parts.push(value); len += value.length; splashAdd(value.length); }
+  const buf = new Uint8Array(len); let o = 0; for(const p of parts){ buf.set(p, o); o += p.length; }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
 async function load(){
   const names = ["graph","places","addresses","trees","transit","buildings","water","streetnames"];
-  const res = await Promise.all(names.map(n => fetch("data/" + n + ".json").then(r => { if(!r.ok) throw new Error(n); return r.json(); })));
+  const res = await Promise.all(names.map(getData));
   names.forEach((n,i) => D[n] = res[i]);
   decode();
   // hills (LIDAR): optional, the app works on flat ground without them
-  try { const ev = await fetch("data/elev.json").then(r => { if(!r.ok) throw 0; return r.json(); });
+  try { const ev = await getData("elev");
     if(ev.cab.length === D.E){ D.cAB = Float64Array.from(ev.cab, v => v/10); D.cBA = Float64Array.from(ev.cba, v => v/10);
       D.eup = Float32Array.from(ev.up, v => v/10); D.edn = Float32Array.from(ev.dn, v => v/10); D.hill = ev.hillshade; loadHillshade(); } } catch(e){}
 }
@@ -647,8 +664,8 @@ async function boot(){
   if(PREVIEW) $("previewTag").hidden = false;
   map = L.map("map", {zoomControl:true, minZoom:11, maxZoom:19, preferCanvas:true}).setView([43.5450,-80.2490], 16);   // opening view: downtown at street scale
   map.attributionControl.setPrefix(false); map.attributionControl.addAttribution("City of Guelph Open Data · Guelph Transit · © OpenStreetMap contributors");
-  try { await load(); } catch(err){ $("loading").textContent = "Couldn't load the map data. Refresh the page to try again."; return; }
-  $("loading").remove(); buildPlaces();
+  try { await load(); } catch(err){ splashError(); return; }
+  hideSplash(); buildPlaces();
   map.setMaxBounds(L.latLngBounds([43.43,-80.40],[43.64,-80.08]));
   base = new MapCanvas().addTo(map); legend = new Legend().addTo(map);
   const busScale = () => { const z=map.getZoom(); document.documentElement.style.setProperty("--bs", z<=12? .5 : z===13? .62 : z===14? .78 : z===15? .9 : 1); };

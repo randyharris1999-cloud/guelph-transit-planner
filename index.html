@@ -2,6 +2,22 @@
 <!-- Guelph Transit Planner. © 2026 Randy Harris. All rights reserved. Not open source: no copying, modification or redistribution without written permission. -->
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#00A6E5"><link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Guelph Transit"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-startup-image" href="icons/launch-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1260x2736.png" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1080x2340.png" media="(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:16px system-ui}img{max-width:100%}[hidden]{display:none!important}</style>
 </head><body>
 <title>Guelph Transit Planner</title>
@@ -40,6 +56,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:1
 #map{background:var(--land);height:100%;min-height:300px}
 header h1{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;letter-spacing:.2px;margin:0;text-wrap:balance}
 header h1 span{color:var(--accent-text)}
+/* Loading screen: shown only while the map data downloads, then fades away */
+.splash{position:fixed;inset:0;z-index:5000;background:var(--bg);display:flex;align-items:center;justify-content:center;
+  padding:env(safe-area-inset-top,0px) 24px env(safe-area-inset-bottom,0px);transition:opacity .3s ease}
+.splash.done{opacity:0;pointer-events:none}
+.splash-in{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;width:min(320px,100%);margin-top:-6vh}
+.splash-in img{width:88px;height:88px;border-radius:20px;box-shadow:0 6px 18px rgba(6,48,63,.18)}
+.splash-in h1{font-family:var(--f-display);font-weight:700;font-size:36px;line-height:1;margin:6px 0 0;letter-spacing:.2px}
+.splash-in h1 span{color:var(--accent-text)}
+.splash-msg{margin:0;color:var(--muted);font-size:15px;min-height:1.45em}
+.splash-bar{width:100%;height:6px;border-radius:3px;background:var(--rule);overflow:hidden;margin-top:6px}
+.splash-bar i{display:block;height:100%;width:100%;transform-origin:left;transform:scaleX(0);transition:transform .2s linear;
+  background:linear-gradient(90deg,var(--accent) 0 66%,var(--brand-green) 66% 100%)}
+.splash-retry{margin-top:4px;font:inherit;font-weight:600;padding:10px 22px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+.splash small{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:var(--muted);font-size:12px}
+@media (prefers-reduced-motion:reduce){.splash,.splash-bar i{transition:none}}
 .brandbar{display:flex;height:5px;border-radius:3px;overflow:hidden;margin-bottom:12px;width:96px}
 .brandbar i{flex:2;background:var(--accent)}.brandbar i+i{flex:1;background:var(--brand-green)}
 .tabs button[aria-pressed="true"]{font-weight:700}
@@ -419,6 +450,16 @@ html,body{overflow-x:clip;max-width:100%}
 
 </style>
 
+<div class="splash" id="splash" role="status" aria-live="polite">
+  <div class="splash-in">
+    <img src="icon.svg" alt="">
+    <h1>Guelph <span>Transit Planner</span></h1>
+    <p class="splash-msg" id="splashMsg">Loading the map and bus schedule…</p>
+    <div class="splash-bar" aria-hidden="true"><i id="splashFill"></i></div>
+    <button class="splash-retry" id="splashRetry" type="button" hidden>Try again</button>
+  </div>
+  <small>© 2026 Randy Harris</small>
+</div>
 <div class="app">
   <aside class="panel" id="panel">
     <button class="grab" id="grab" aria-label="Show just the map" aria-expanded="true"><span aria-hidden="true"></span></button>
@@ -497,7 +538,7 @@ html,body{overflow-x:clip;max-width:100%}
       <p style="margin:8px 0 0">Data: City of Guelph Open Data (addresses, buildings, trees, parks, watercourses, schools, facilities, streets, trails) · Guelph Transit GTFS, fall 2026 schedule, and GTFS-realtime · © OpenStreetMap contributors (ODbL).<br><span class="disclaimer">An independent project built on City of Guelph open data. Not an official City of Guelph or Guelph Transit service.</span></p>
     </footer>
   </aside>
-  <div id="map" style="position:relative"><div class="loading" id="loading">Loading Guelph…</div>
+  <div id="map" style="position:relative">
     <div class="layers" id="layers" role="group" aria-label="Places on the map"></div>
     <div class="pickhint" id="pickHint" hidden><span id="pickTxt"></span><button id="pickX" hidden>Cancel</button></div>
     <div class="refresh" id="refresh" hidden><span class="trk"><span class="fill" id="refreshFill"></span></span><span id="refreshTxt">Loading buses…</span></div>
@@ -721,13 +762,30 @@ const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, op
 let D = {}, map, base, legend, pins = {}, meMarker = null, meCircle = null;
 
 /* ---------- data ---------- */
+// file sizes in bytes, written in by scripts/build_html.py so the loading screen can show real progress
+const DATA_BYTES = {"graph":725530,"places":185193,"addresses":2780014,"trees":1299157,"transit":2672516,"buildings":2407727,"water":234468,"streetnames":201462,"elev":175580};
+const SPL = { got:0, sum:Object.values(DATA_BYTES).reduce((a,b) => a+b, 0) };
+function splashAdd(n){ SPL.got += n; const f = $("splashFill"); if(f && SPL.sum) f.style.transform = `scaleX(${Math.min(1, SPL.got/SPL.sum).toFixed(3)})`; }
+function hideSplash(){ const s = $("splash"); if(!s) return; splashAdd(SPL.sum);
+  requestAnimationFrame(() => requestAnimationFrame(() => { s.classList.add("done"); setTimeout(() => s.remove(), 350); })); }
+function splashError(){ $("splashMsg").textContent = "Couldn't load the map data. Check your connection and try again.";
+  $("splashRetry").hidden = false; $("splashRetry").onclick = () => location.reload(); }
+// fetch a data file, counting bytes as they arrive
+async function getData(n){
+  const r = await fetch("data/" + n + ".json"); if(!r.ok) throw new Error(n);
+  if(!r.body || !r.body.getReader){ const j = await r.json(); splashAdd(DATA_BYTES[n] || 0); return j; }
+  const rd = r.body.getReader(), parts = []; let len = 0;
+  for(;;){ const {done, value} = await rd.read(); if(done) break; parts.push(value); len += value.length; splashAdd(value.length); }
+  const buf = new Uint8Array(len); let o = 0; for(const p of parts){ buf.set(p, o); o += p.length; }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
 async function load(){
   const names = ["graph","places","addresses","trees","transit","buildings","water","streetnames"];
-  const res = await Promise.all(names.map(n => fetch("data/" + n + ".json").then(r => { if(!r.ok) throw new Error(n); return r.json(); })));
+  const res = await Promise.all(names.map(getData));
   names.forEach((n,i) => D[n] = res[i]);
   decode();
   // hills (LIDAR): optional, the app works on flat ground without them
-  try { const ev = await fetch("data/elev.json").then(r => { if(!r.ok) throw 0; return r.json(); });
+  try { const ev = await getData("elev");
     if(ev.cab.length === D.E){ D.cAB = Float64Array.from(ev.cab, v => v/10); D.cBA = Float64Array.from(ev.cba, v => v/10);
       D.eup = Float32Array.from(ev.up, v => v/10); D.edn = Float32Array.from(ev.dn, v => v/10); D.hill = ev.hillshade; loadHillshade(); } } catch(e){}
 }
@@ -1362,8 +1420,8 @@ async function boot(){
   if(PREVIEW) $("previewTag").hidden = false;
   map = L.map("map", {zoomControl:true, minZoom:11, maxZoom:19, preferCanvas:true}).setView([43.5450,-80.2490], 16);   // opening view: downtown at street scale
   map.attributionControl.setPrefix(false); map.attributionControl.addAttribution("City of Guelph Open Data · Guelph Transit · © OpenStreetMap contributors");
-  try { await load(); } catch(err){ $("loading").textContent = "Couldn't load the map data. Refresh the page to try again."; return; }
-  $("loading").remove(); buildPlaces();
+  try { await load(); } catch(err){ splashError(); return; }
+  hideSplash(); buildPlaces();
   map.setMaxBounds(L.latLngBounds([43.43,-80.40],[43.64,-80.08]));
   base = new MapCanvas().addTo(map); legend = new Legend().addTo(map);
   const busScale = () => { const z=map.getZoom(); document.documentElement.style.setProperty("--bs", z<=12? .5 : z===13? .62 : z===14? .78 : z===15? .9 : 1); };

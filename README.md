@@ -27,6 +27,11 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - Hills: soft shaded relief from the LIDAR ground model, on by default (the Hills chip turns it off). It fades as you zoom in close.
 - Optional live City layers: road closures and sidewalk snow clearing.
 
+**Opening and installing**
+- The map opens on downtown at street scale.
+- While the map and bus schedule download (about 12 MB), a loading screen shows the app's name and a progress bar. It disappears the moment the data is ready, and offers "Try again" if the download fails.
+- Add it to your phone's home screen to use it like an app: in Safari, Share → Add to Home Screen; in Chrome on Android, ⋮ → Add to Home screen (or Install app). It then opens full screen with its own icon and a launch screen.
+
 The start and destination boxes are empty every time the page opens. Links can still be shared by adding them: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
 
 ## What's in the folder
@@ -38,16 +43,19 @@ The start and destination boxes are empty every time the page opens. Links can s
 | `gtfsrt.js` | Reads Guelph Transit's GTFS-realtime feed format in the browser |
 | `leaflet.min.js` | Leaflet 1.9.4 map library |
 | `icon.svg` | Browser tab icon |
+| `manifest.webmanifest` | Home-screen app settings: name, colours, icons |
+| `icons/` | App icons and iPhone launch images, made by `scripts/build_icons.py` |
 | `data/` | Walking network, addresses, places, buildings, water, street names, trees and the bus schedule (same files as 15-Minute Guelph) |
 | `data/elev.json`, `data/hillshade.jpg` | Hills from LIDAR: walking cost and climb for every path, each direction, and the shaded relief image |
 | `data/realtime/` | Saved feed snapshot used only by preview mode |
 | `src/` | App source in numbered parts (styles, layout, map, planner, live buses) |
-| `scripts/build_html.py` | Joins `src/` into `index.html` |
+| `scripts/build_html.py` | Joins `src/` into `index.html`, adds the home-screen tags and the data sizes for the progress bar |
+| `scripts/build_icons.py` | Makes `icons/` and `manifest.webmanifest` (needs Playwright) |
 | `scripts/build_elev.py` | Builds the hill files from the LIDAR elevation grid |
 
 ## Editing
 
-Change files in `src/`, then run `python scripts/build_html.py` from this folder to rebuild `index.html`. Parts of the code are shared with 15-Minute Guelph: the basemap (`src/25-basemap.js`), labels (`src/30-labels.js`) and live buses (`src/50-live.js`).
+Change files in `src/`, then run `python scripts/build_html.py` from this folder to rebuild `index.html`. Run it again after updating anything in `data/`, so the loading bar knows the new file sizes. Only rerun `scripts/build_icons.py` if you change the icon or the app's name. Parts of the code are shared with 15-Minute Guelph: the basemap (`src/25-basemap.js`), labels (`src/30-labels.js`) and live buses (`src/50-live.js`).
 
 ## Updating the data
 

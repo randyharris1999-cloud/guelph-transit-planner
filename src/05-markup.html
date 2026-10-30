@@ -258,6 +258,16 @@ html,body{overflow-x:clip;max-width:100%}
 
 </style>
 
+<div class="splash" id="splash" role="status" aria-live="polite">
+  <div class="splash-in">
+    <img src="icon.svg" alt="">
+    <h1>Guelph <span>Transit Planner</span></h1>
+    <p class="splash-msg" id="splashMsg">Loading the map and bus schedule…</p>
+    <div class="splash-bar" aria-hidden="true"><i id="splashFill"></i></div>
+    <button class="splash-retry" id="splashRetry" type="button" hidden>Try again</button>
+  </div>
+  <small>© 2026 Randy Harris</small>
+</div>
 <div class="app">
   <aside class="panel" id="panel">
     <button class="grab" id="grab" aria-label="Show just the map" aria-expanded="true"><span aria-hidden="true"></span></button>
@@ -336,7 +346,7 @@ html,body{overflow-x:clip;max-width:100%}
       <p style="margin:8px 0 0">Data: City of Guelph Open Data (addresses, buildings, trees, parks, watercourses, schools, facilities, streets, trails) · Guelph Transit GTFS, fall 2026 schedule, and GTFS-realtime · © OpenStreetMap contributors (ODbL).<br><span class="disclaimer">An independent project built on City of Guelph open data. Not an official City of Guelph or Guelph Transit service.</span></p>
     </footer>
   </aside>
-  <div id="map" style="position:relative"><div class="loading" id="loading">Loading Guelph…</div>
+  <div id="map" style="position:relative">
     <div class="layers" id="layers" role="group" aria-label="Places on the map"></div>
     <div class="pickhint" id="pickHint" hidden><span id="pickTxt"></span><button id="pickX" hidden>Cancel</button></div>
     <div class="refresh" id="refresh" hidden><span class="trk"><span class="fill" id="refreshFill"></span></span><span id="refreshTxt">Loading buses…</span></div>
