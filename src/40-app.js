@@ -736,9 +736,13 @@ async function boot(){
       if(S.tab!=="plan") setTab("plan"); setEnd(b.dataset.m, ep); }); });
   map.on("moveend", () => { if(S.tab==="stops" && S.stop==null && !$("stopQ").value) renderStop(); });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => base.draw());
+  // every open starts with an empty trip: clear anything the browser put back in the boxes
+  $("fromQ").value = ""; $("toQ").value = "";
   // deep links: ?from=&to=&route=&stop=&tab=
+  // The home-screen app ignores from/to, so an old saved address with a trip in it can't bring that trip back.
   const P = new URLSearchParams(location.search);
-  const f = resolve(P.get("from")), t = resolve(P.get("to"));
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const f = standalone ? null : resolve(P.get("from")), t = standalone ? null : resolve(P.get("to"));
   if(f) setEnd("from", f, {go:false, view:!t}); if(t) setEnd("to", t, {go:false});
   if(HUBS[P.get("going")]) S.rhub = P.get("going");
   if(P.get("route")){ const ri=D.transit.routes.findIndex(R => R[0].toLowerCase()===P.get("route").toLowerCase()); if(ri>=0){ S.route=ri; } }
@@ -746,5 +750,14 @@ async function boot(){
   setTab(P.get("tab") || (S.route!=null ? "routes" : S.stop!=null ? "stops" : "plan"));
   if(S.from && S.to) runPlan(); else if(S.tab==="routes" && S.route!=null) openRoute(S.route); else if(S.tab==="stops" && S.stop!=null) openStop(S.stop);
   startLive(); setInterval(tickCD, 1000);
+  // Phones often resume the page instead of reloading it (back/forward cache, or the home-screen app
+  // coming back from the background). Treat those as a fresh open too: clear the trip if the page was
+  // restored from cache, or if it has been out of sight for 15 minutes or more.
+  const AWAY = 15*60000; let hiddenAt = null;
+  const clearTrip = () => { if(!S.from && !S.to) return; setEnd("from", null, {go:false}); setEnd("to", null, {go:false}); };
+  addEventListener("pageshow", e => { if(e.persisted) clearTrip(); });
+  document.addEventListener("visibilitychange", () => {
+    if(document.hidden) hiddenAt = Date.now();
+    else { if(hiddenAt && Date.now()-hiddenAt >= AWAY) clearTrip(); hiddenAt = null; } });
 }
 function showSuggSel(){ document.querySelectorAll("#sugg li[data-k]").forEach((li,k) => li.setAttribute("aria-selected", k===sActive)); }

@@ -32,7 +32,7 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - While the map and bus schedule download (about 12 MB), a loading screen shows the app's name and a progress bar. It disappears the moment the data is ready, and offers "Try again" if the download fails.
 - Add it to your phone's home screen to use it like an app: in Safari, Share → Add to Home Screen; in Chrome on Android, ⋮ → Add to Home screen (or Install app). It then opens full screen with its own icon and a launch screen.
 
-The start and destination boxes are empty every time the page opens. Links can still be shared by adding them: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
+The start and destination boxes are empty every time the page opens. That includes a phone bringing the page back from its cache, or the home-screen app returning after 15 minutes or more in the background. The home-screen app always opens with an empty trip. In a browser, links can still be shared by adding them: `?from=51 Cork Street West&to=435 Stone Road West`, `?tab=routes&route=99`, `?tab=stops&stop=6068`, `?from=stop 6068&to=43.53,-80.23`.
 
 ## What's in the folder
 
