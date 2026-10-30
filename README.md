@@ -90,4 +90,12 @@ Walking follows Guelph's streets, sidewalks and trails at 4.8 km/h on flat groun
 
 Live times use the visitor's clock and assume Ontario time.
 
-An independent project built on City of Guelph open data. Not an official City of Guelph or Guelph Transit service. Created by Randy Harris.
+An independent project built on City of Guelph open data. Not an official City of Guelph or Guelph Transit service.
+
+## Copyright
+
+© 2026 Randy Harris. All rights reserved.
+
+The code, design and layout of this app are not open source. You're welcome to use the app and to view this repository on GitHub, but you may not copy, modify, redistribute or republish the code or design, in whole or in part, without written permission. See [LICENSE](LICENSE).
+
+The data the app displays stays under its own licences: City of Guelph Open Government Licence, Guelph Transit GTFS terms, OpenStreetMap (ODbL), and Ontario's Open Government Licence for the elevation model.
