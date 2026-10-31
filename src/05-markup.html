@@ -85,6 +85,12 @@
 .facts .roadbus:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .facts .roadbus .go{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:14px;font-weight:700;color:var(--accent-text)}
 .facts .roadbus .go svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nextstop{position:absolute;left:0;top:0;pointer-events:none}
+.nextstop b{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--panel,#fff);border:5px solid var(--c);box-sizing:border-box;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.35)}
+.nextstop i{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;background:var(--c);opacity:.35;animation:nspulse 1.6s ease-out infinite}
+.nextstop span{position:absolute;left:0;top:-42px;transform:translateX(-50%);white-space:nowrap;background:var(--c);color:var(--k);font:700 13px/1 var(--f-body,system-ui);padding:4px 7px;border-radius:99px;box-shadow:0 0 0 1.5px #fff,0 1px 3px rgba(0,0,0,.3)}
+@keyframes nspulse{0%{transform:scale(.45);opacity:.55}100%{transform:scale(1.25);opacity:0}}
+@media (prefers-reduced-motion:reduce){.nextstop i{animation:none;opacity:.25}}
 .dep .lbl .findbus{float:none;margin:6px 0 0;font-size:16px!important}
 .facts small{display:block;font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .facts b{font-family:var(--f-display);font-size:19px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}

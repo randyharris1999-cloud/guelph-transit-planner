@@ -385,7 +385,7 @@ const Legend = L.Control.extend({ options:{position:"bottomright"}, onAdd(){ thi
 function updateLegend(){ if(!legend) return;
   if(showWalkArea()){ const bands=bandsFor(WALK_AREA); legend.set(`<b>Walking time, minutes</b><div class="ramp">${bands.map(([lo,hi,c])=>`<i style="background:${c};flex:${hi-lo}"></i>`).join("")}</div><div class="ticks">${[0,...bands.map(b=>b[1])].map(t=>`<span>${t}</span>`).join("")}</div>`); return; }
   legend.set(""); }
-function redraw(){ updateLegend(); busFocus(); updatePickHint(); if(base) base.draw(); }
+function redraw(){ updateLegend(); busFocus(); updateNextStop(); updatePickHint(); if(base) base.draw(); }
 
 /* ---------- pins ---------- */
 function setPin(k, ep){ if(pins[k]){ pins[k].remove(); pins[k]=null; } if(!ep) return;
@@ -618,18 +618,31 @@ function goStopBus(el){ const ti=+el.dataset.findtrip, si=+el.dataset.findstop, 
   if(!mk) return notYet(el);
   keepPlace(el, `[data-findtrip="${ti}"][data-findstop="${si}"]`, () => { selectBus(id, si); fitBusStop(mk, si); }); }
 // Routes tab: "On the road" shows a bus and the stop it's heading to; with several buses, each tap moves to the next one
-function roadBuses(){ const day=liveDay(), d=D.days[day], ri=S.route, h=S.rdir, seqs=tripSeq(day), now=nowSec(), out=[];
+// the stop a live bus is approaching: the timetable's guess, checked against where the bus actually is on the map
+function nextStopOf(st){ if(!st || !st.info || st.info.ti==null) return null;
+  const q=tripSeq(st.info.day).get(st.info.ti)||[], dl=st.info.delay||0, now=nowSec(); let k=q.findIndex(([si,t]) => t+dl >= now); if(k<0) return null;
+  const mk=LV.markers.get(st.id), p = mk ? mk.getLatLng() : st.lat!=null ? {lat:st.lat, lng:st.lon} : null;
+  if(p){ const dm = si => Math.hypot((D.stops[si].lon-p.lng)*KX, (D.stops[si].lat-p.lat)*KY); let bj=k, bd=Infinity;
+    // the timetable can lag a late bus: take the nearest stop in a window around its guess…
+    for(let j=Math.max(0,k-4); j<Math.min(q.length,k+5); j++){ const dd=dm(q[j][0]); if(dd<bd){ bd=dd; bj=j; } }
+    // …then which side of it the bus is on: the stretch (stop before → it, or it → stop after) the bus sits on best
+    const sd = (a,b) => Math.hypot((D.stops[a].lon-D.stops[b].lon)*KX, (D.stops[a].lat-D.stops[b].lat)*KY), off = (a,b) => dm(a)+dm(b)-sd(a,b);
+    k = bd < 15 || bj+1 >= q.length ? bj : bj===0 ? (off(q[0][0], q[1][0]) < bd*.5 ? 1 : 0) : off(q[bj][0], q[bj+1][0]) < off(q[bj-1][0], q[bj][0]) ? bj+1 : bj; }
+  return {si:q[k][0], t:q[k][1]+dl}; }
+// Routes tab: "On the road" shows a bus and the stop it's heading to; with several buses, each tap moves to the next one
+function roadBuses(){ const day=liveDay(), d=D.days[day], ri=S.route, h=S.rdir, out=[];
   for(const st of VS.values()){ if(!st.info || st.info.ti==null || D.transit.routes.indexOf(st.info.R)!==ri || d.head[st.info.ti]!==h) continue;
-    const q=seqs.get(st.info.ti)||[], dl=st.info.delay||0; let k=q.findIndex(([si,t]) => t+dl >= now);
-    // the timetable guess can lag a late bus, so check it against where the bus actually is: nearest stop in a window around the guess, then the one after it
-    const mk=LV.markers.get(st.id), p = mk ? mk.getLatLng() : st.lat!=null ? {lat:st.lat, lng:st.lon} : null;
-    if(k>=0 && p){ const dm = si => Math.hypot((D.stops[si].lon-p.lng)*KX, (D.stops[si].lat-p.lat)*KY); let bj=k, bd=Infinity;
-      for(let j=Math.max(0,k-4); j<Math.min(q.length,k+5); j++){ const dd=dm(q[j][0]); if(dd<bd){ bd=dd; bj=j; } }
-      // which side of that stop is the bus on? the stretch (stop before → it, or it → stop after) the bus sits on best
-      const sd = (a,b) => Math.hypot((D.stops[a].lon-D.stops[b].lon)*KX, (D.stops[a].lat-D.stops[b].lat)*KY), off = (a,b) => dm(a)+dm(b)-sd(a,b);
-      k = bd < 15 || bj+1 >= q.length ? bj : bj===0 ? (off(q[0][0], q[1][0]) < bd*.5 ? 1 : 0) : off(q[bj][0], q[bj+1][0]) < off(q[bj-1][0], q[bj][0]) ? bj+1 : bj; }
-    out.push({id:st.id, si: k>=0? q[k][0] : null, t: k>=0? q[k][1]+dl : Infinity}); }
+    const n=nextStopOf(st); out.push({id:st.id, si: n? n.si : null, t: n? n.t : Infinity}); }
   return out.sort((a,b) => a.t-b.t || String(a.id).localeCompare(String(b.id))); }
+// a pulsing marker on the stop the selected bus is approaching; follows the bus as it moves
+let nextMk = null, nextTimer = null;
+function updateNextStop(){ const st = S.bus && VS.get(S.bus), n = st && LV.markers.get(S.bus) ? nextStopOf(st) : null;
+  if(!n){ if(nextMk){ nextMk.remove(); nextMk=null; } clearInterval(nextTimer); nextTimer=null; return; }
+  const s=D.stops[n.si], col=st.R[2], key=n.si+"|"+col;
+  if(!nextMk) nextMk = L.marker([s.lat,s.lon], {interactive:false, keyboard:false, zIndexOffset:900}).addTo(map);
+  if(nextMk._key!==key){ nextMk._key=key; nextMk.setLatLng([s.lat,s.lon]);
+    nextMk.setIcon(L.divIcon({className:"", iconSize:[0,0], html:`<div class="nextstop" style="--c:${col};--k:${routeInk(st.R)}"><i></i><b></b><span>Next stop</span></div>`})); }
+  if(!nextTimer) nextTimer = setInterval(updateNextStop, 2000); }
 function goRoadBus(el){ const bs=roadBuses().filter(b => LV.markers.get(b.id)); if(!bs.length) return;
   const cur = bs.findIndex(b => b.id===S.bus), k = cur<0 ? 0 : (cur+1) % bs.length, b=bs[k];
   S.roadK = bs.length>1 ? k : null;

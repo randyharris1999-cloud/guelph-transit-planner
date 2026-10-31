@@ -193,7 +193,7 @@ function drawBuses(){
       st.rot.setAttribute("transform", `rotate(${(st.deg||0).toFixed(1)} 46 46)`); }
     else { mk.setTooltipContent(tip); st.rot = mk.getElement()?.querySelector(".bg"); } }
   for(const [id, mk] of LV.markers) if(!seen.has(id)){ LV.layer.removeLayer(mk); LV.markers.delete(id); VS.delete(id); }
-  busFocus(); kick();
+  busFocus(); kick(); if(typeof updateNextStop==='function') updateNextStop();
 }
 
 /* City of Guelph live layers (read straight from the City's map server) */
