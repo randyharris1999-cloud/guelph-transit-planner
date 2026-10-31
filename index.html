@@ -326,8 +326,13 @@ footer{font-size:14px;color:var(--muted);margin-top:auto}
 .mpop button{display:block;width:100%;font:inherit;font-size:16px;font-weight:600;padding:7px 10px;margin-top:5px;border-radius:7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;text-align:left}
 .mpop button:hover{background:var(--chip)}
 .ppin{width:22px;height:22px;border-radius:50%;background:var(--panel);border:5px solid #2EAD5E;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-.ppin.to{border:0;background:var(--ink);border-radius:50% 50% 50% 0;transform:rotate(-45deg);width:24px;height:24px;display:grid;place-items:center}
-.ppin.to::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--panel)}
+.ppin.to{width:30px;height:30px;border:3px solid #fff;background:#D9472B;display:grid;place-items:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.35)}
+.ppin.to svg{width:16px;height:16px;margin-left:2px}
+.stepmk{position:absolute;left:0;top:0;pointer-events:none}
+.stepmk i{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;background:var(--c);opacity:.22}
+.stepmk b{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:var(--panel,#fff);border:5px solid var(--c);box-sizing:border-box;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.35)}
+.stepmk.atpin b{display:none}
+.stepmk span{position:absolute;left:0;top:-48px;transform:translateX(-50%);white-space:nowrap;background:var(--c);color:var(--k);font:700 14px/1 var(--f-body,system-ui);padding:5px 9px;border-radius:99px;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.3)}
 .me{width:16px;height:16px;border-radius:50%;background:#1A73E8;border:3px solid #fff;box-sizing:border-box;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 1px 4px rgba(0,0,0,.35);position:relative}
 .busm.sel svg{filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 6px var(--ink))}
 .busm{transition:opacity .3s}
@@ -921,11 +926,70 @@ function nearestNodeLL(lon, lat){ const x=(lon-LON0)*KX, y=(lat-LAT0)*KY;
     for(let i=0;i<D.N;i++){ D.nxp[i]=(D.nlon[i]-LON0)*KX; D.nyp[i]=(D.nlat[i]-LAT0)*KY; const k=Math.floor(D.nxp[i]/100)+":"+Math.floor(D.nyp[i]/100); let a=D.ngrid.get(k); if(!a) D.ngrid.set(k,a=[]); a.push(i); } }
   let best=-1, bd=Infinity; for(let r=1;r<=8 && (best<0 || bd > (r-1)*100*(r-1)*100);r++){ for(let gx=-r;gx<=r;gx++) for(let gy=-r;gy<=r;gy++){ const a=D.ngrid.get((Math.floor(x/100)+gx)+":"+(Math.floor(y/100)+gy)); if(a) for(const i of a){ const d=(D.nxp[i]-x)**2+(D.nyp[i]-y)**2; if(d<bd){bd=d;best=i;} } } }
   return [best, Math.sqrt(bd)]; }
+/* ---------- snapping onto the walking network ----------
+   A start, destination or stop joins the network at the closest spot on the closest path or sidewalk, not at
+   the closest junction, so a walk doesn't run past its stop to a corner and back, or cut across a block. */
+const MS = 40075016.686 * Math.cos(LAT0 * Math.PI / 180), MX0 = mercX(LON0), MY0 = mercY(LAT0);   // metres per web-mercator unit here
+const toMx = mx => (mx-MX0)*MS, toMy = my => (my-MY0)*MS;
+function edgeGrid(){ if(D.egrid) return D.egrid; const g = D.egrid = new Map(), C = 50;
+  for(let e=0;e<D.E;e++) for(let k=D.eoff[e]; k<D.eoff[e+1]-1; k++){
+    const x0=toMx(D.gx[k]), y0=toMy(D.gy[k]), x1=toMx(D.gx[k+1]), y1=toMy(D.gy[k+1]);
+    for(let cx=Math.floor(Math.min(x0,x1)/C); cx<=Math.floor(Math.max(x0,x1)/C); cx++) for(let cy=Math.floor(Math.min(y0,y1)/C); cy<=Math.floor(Math.max(y0,y1)/C); cy++){
+      const key=cx+":"+cy; let a=g.get(key); if(!a) g.set(key, a=[]); if(a[a.length-1]!==k) a.push(k); } }
+  return g; }
+// geometry index k -> its edge (built once)
+function segEdge(){ if(D.kedge) return D.kedge; const ke = D.kedge = new Int32Array(D.gx.length); for(let e=0;e<D.E;e++) for(let k=D.eoff[e]; k<D.eoff[e+1]; k++) ke[k]=e; return ke; }
+function snapLL(lon, lat){ const g=edgeGrid(), ke=segEdge(), C=50, px=toMx(mercX(lon)), py=toMy(mercY(lat)), cx0=Math.floor(px/C), cy0=Math.floor(py/C);
+  let best=null, bd=Infinity;
+  for(let r=0; r<=8; r++){ if(best && bd < (r-1)*C) break;
+    for(let gx=-r; gx<=r; gx++) for(let gy=-r; gy<=r; gy++){ if(Math.max(Math.abs(gx),Math.abs(gy))!==r) continue; const a=g.get((cx0+gx)+":"+(cy0+gy)); if(!a) continue;
+      for(const k of a){ const x0=toMx(D.gx[k]), y0=toMy(D.gy[k]), dx=toMx(D.gx[k+1])-x0, dy=toMy(D.gy[k+1])-y0, L2=dx*dx+dy*dy;
+        const t = L2 ? Math.max(0, Math.min(1, ((px-x0)*dx + (py-y0)*dy)/L2)) : 0, qx=x0+t*dx, qy=y0+t*dy, d=Math.hypot(px-qx, py-qy);
+        if(d < bd){ bd=d; best={k, t}; } } } }
+  if(!best) { const [n,c]=nearestNodeLL(lon,lat); return snapNode(n, c); }
+  const {k, t} = best, e = ke[k];
+  // how far along the edge (0 at ea, 1 at eb), by its drawn length
+  let tot=0, upto=0; for(let j=D.eoff[e]; j<D.eoff[e+1]-1; j++){ const l=Math.hypot(toMx(D.gx[j+1])-toMx(D.gx[j]), toMy(D.gy[j+1])-toMy(D.gy[j])); if(j<k) upto+=l; else if(j===k) upto+=t*l; tot+=l; }
+  return {e, k, f: tot ? upto/tot : 0, mx: D.gx[k]+t*(D.gx[k+1]-D.gx[k]), my: D.gy[k]+t*(D.gy[k+1]-D.gy[k]), conn: bd}; }
+// joining at a junction (a park entrance, say)
+function snapNode(n, conn=0){ const e = D.adjE[D.off[n]], atA = D.ea[e]===n;
+  return {e, k: atA ? D.eoff[e] : D.eoff[e+1]-2, f: atA ? 0 : 1, mx:D.nmx[n], my:D.nmy[n], conn}; }
+const snapOf = o => o.sn || (o.sn = o.access!=null ? snapNode(o.access, 0) : snapLL(o.lon, o.lat));
+const costAB = e => (D.cAB || D.el)[e], costBA = e => (D.cBA || D.el)[e];
+// search seeds for a snapped point: walking away from it (reverse=false) or towards it (reverse=true)
+function seedsOf(sn, reverse=false){ const {e, f, conn} = sn;
+  return reverse ? [[D.ea[e], conn + f*costAB(e)], [D.eb[e], conn + (1-f)*costBA(e)]] : [[D.ea[e], conn + f*costBA(e)], [D.eb[e], conn + (1-f)*costAB(e)]]; }
+const walkFrom = (o, limit=Infinity) => dijkstra(seedsOf(snapOf(o)), limit), walkTo = (o, limit=Infinity) => dijkstra(seedsOf(snapOf(o), true), limit, true);
+// walking cost between a search tree's root and a snapped point, and which end of the point's edge it goes through
+function reachOf(T, o){ const sn=snapOf(o), {e, f, conn} = sn, a=D.ea[e], b=D.eb[e];
+  const da = T.dist[a] + f*(T.reverse ? costBA(e) : costAB(e)), db = T.dist[b] + (1-f)*(T.reverse ? costAB(e) : costBA(e));
+  return da <= db ? {d: da+conn, n:a, side:"a"} : {d: db+conn, n:b, side:"b"}; }
+const walkCost = (T, o) => reachOf(T, o).d;
+// the drawn line from an edge end to the snapped spot: end node first, snapped spot last
+function partial(sn, side){ const out=[], {e, k} = sn;
+  if(side==="a"){ for(let j=D.eoff[e]; j<=k; j++) out.push([D.gx[j], D.gy[j]]); }
+  else { for(let j=D.eoff[e+1]-1; j>k; j--) out.push([D.gx[j], D.gy[j]]); }
+  out.push([sn.mx, sn.my]); return out; }
+function rootOf(T, node){ let u=node, guard=0; while(guard++<20000){ const e=T.pred[u]; if(e<0) return u; u = D.ea[e]===u ? D.eb[e] : D.ea[e]; } return u; }
+// a full walk drawn along the network: from point P to point Q, using tree T rooted at P (forward) or at Q (reverse)
+function walkLine(T, P, Q){ const pin = o => [mercX(o.lon), mercY(o.lat)], sp=snapOf(P), sq=snapOf(Q);
+  // both on the same stretch of path: just walk along it
+  if(sp.e===sq.e){ const g=[]; const lo=Math.min(sp.k,sq.k), hi=Math.max(sp.k,sq.k); for(let j=lo+1;j<=hi;j++) g.push([D.gx[j],D.gy[j]]); if(sp.k>sq.k || (sp.k===sq.k && sp.f>sq.f)) g.reverse();
+    const direct = sp.conn + sq.conn + Math.abs(sp.f-sq.f)*D.el[sp.e];
+    if(direct <= (T.reverse ? walkCost(T, P) : walkCost(T, Q)) + 1) return {pts:[pin(P), [sp.mx,sp.my], ...g, [sq.mx,sq.my], pin(Q)], len:direct, up:0, dn:0}; }
+  const far = T.reverse ? P : Q, near = T.reverse ? Q : P, r = reachOf(T, far), root = rootOf(T, r.n), sn = snapOf(near), sf = snapOf(far);
+  const st = treeStats(T, r.n), mid = treePath(T, r.n);   // root -> r.n
+  const rootSide = D.ea[sn.e]===root ? "a" : "b";
+  const nearPart = partial(sn, rootSide), farPart = partial(sf, r.side);   // root end -> near spot, far end -> far spot
+  let pts = [...nearPart.slice().reverse(), ...mid.slice(1), ...farPart.slice(1)];   // near spot -> far spot
+  pts = [pin(near), ...pts, pin(far)]; if(T.reverse) pts.reverse();
+  const len = st.len + sn.conn + sf.conn + D.el[sn.e]*(rootSide==="a" ? sn.f : 1-sn.f) + D.el[sf.e]*(r.side==="a" ? sf.f : 1-sf.f);
+  return {pts, len, up:st.up, dn:st.dn}; }
 function nearestAddress(lat,lon){ const x=(lon-LON0)*KX, y=(lat-LAT0)*KY; let best=-1, bd=Infinity;
   for(let r=1;r<=6 && best<0;r+=2) for(let gx=-r;gx<=r;gx++) for(let gy=-r;gy<=r;gy++){ const a=D.agrid.get((Math.floor(x/100)+gx)+":"+(Math.floor(y/100)+gy)); if(a) for(const i of a){ const d=(D.ax[i]-x)**2+(D.ay[i]-y)**2; if(d<bd){bd=d;best=i;} } }
   return bd < 120*120 ? best : -1; }
 const epAddress = i => ({label:D.addresses.text[i], lat:D.addresses.lat[i]/1e5, lon:D.addresses.lon[i]/1e5, node:D.addresses.node[i], conn:D.addresses.conn[i]});
-const epStop = si => { const s=D.stops[si]; return {label:s.name, sub:"Stop #"+s.code, lat:s.lat, lon:s.lon, node:s.node, conn:s.conn, stop:si}; };
+const epStop = si => { const s=D.stops[si]; return {label:s.name, sub:"Stop #"+s.code, lat:s.lat, lon:s.lon, node:s.node, conn:s.conn, stop:si, sn:snapOf(s)}; };
 function epPoint(lat, lon, label){ const [node, conn] = nearestNodeLL(lon, lat); return {label, lat, lon, node, conn:Math.round(conn)}; }
 const PLACE_LABEL = {school:"School", facility:"", restroom:"Restroom", garden:"Community garden", grocery:"Grocery", pharmacy:"Pharmacy", health:"Clinic", food:"Café or restaurant", playground:"Playground", aed:null};
 // where a place is: its own address, else the closest street address within 250 m, else the closest street
@@ -939,7 +1003,7 @@ function placeWhere(p, lat, lon){ if(p.addr) return p.addr;
 function buildPlaces(){ D.placeIdx = []; const all = [];
   for(const [k,lbl] of Object.entries(PLACE_LABEL)){ if(lbl===null) continue; for(const p of D.pts[k]||[]){ if(!p.name || /^playground$/i.test(p.name)) continue;
     all.push({p, type: (k==="food" || k==="health") && typeof p.extra==="string" && p.extra ? p.extra.replace(/^Cafe$/,"Café").replace(/^Doctors?$/,"Doctor's office") : lbl || p.extra || "", rank: k==="facility" || k==="school" ? 0 : ["restroom","garden","playground"].includes(k) ? 2 : 1, lat:p.lat, lon:p.lon, ep:() => ({lat:p.lat, lon:p.lon, node:p.node, conn:p.conn})}); } }
-  for(const p of D.parks){ const [lat, lon] = unmerc(p.mx, p.my); all.push({p, type:"Park", rank:0, lat, lon, ep:() => { const e=epPoint(lat, lon, p.name); if(p.access.length){ e.node=p.access[0]; e.conn=0; } return e; }}); }
+  for(const p of D.parks){ const [lat, lon] = unmerc(p.mx, p.my); all.push({p, type:"Park", rank:0, lat, lon, ep:() => { const e=epPoint(lat, lon, p.name); if(p.access.length){ e.node=p.access[0]; e.conn=0; e.access=p.access[0]; } return e; }}); }
   const count = new Map(); for(const r of all){ const k=r.p.name.toLowerCase(); count.set(k, (count.get(k)||0)+1); }
   const seen = new Set();
   for(const r of all){ const name=r.p.name, where=placeWhere(r.p, r.lat, r.lon), dup = count.get(name.toLowerCase()) > 1;
@@ -976,7 +1040,7 @@ function treePath(tree, node){ const pts=[]; let u=node, guard=0;
 const llM = ep => [mercX(ep.lon), mercY(ep.lat)];
 function scan(A, B, day, t0, dA, dB){
   const d=D.days[day], c=d.c, ns=D.stops.length, ea=new Float64Array(ns).fill(Infinity), jp=new Array(ns), tb=new Int32Array(d.trips.length).fill(-1), egress=new Float64Array(ns);
-  D.stops.forEach((s,si) => { const w=dA.dist[s.node]+s.conn; if(w<=MAXW){ ea[si]=t0 + w/WALK*60; jp[si]={w}; } egress[si]=dB.dist[s.node]+s.conn; });
+  D.stops.forEach((s,si) => { const w=walkCost(dA, s); if(w<=MAXW){ ea[si]=t0 + w/WALK*60; jp[si]={w}; } egress[si]=walkCost(dB, s); });
   let best=Infinity, bestStop=-1; const tmax = t0 + 3*3600;
   const reach = (si, t) => { if(egress[si] <= MAXW){ const ta = t + egress[si]/WALK*60; if(ta < best){ best=ta; bestStop=si; } } };
   for(let k=firstAt(c, t0); k<c.length; k+=5){ const dep=c[k]; if(dep > tmax || dep >= best) break; const ti=c[k+4], a=c[k+2], b=c[k+3], arr=c[k+1];
@@ -990,14 +1054,14 @@ function scan(A, B, day, t0, dA, dB){
     if(j.from !== undefined){ legs.unshift({type:"xfer", a:j.from, b:s, dur:j.dur}); s=j.from; continue; }
     const a=c[j.kb+2]; legs.unshift({type:"ride", ti:j.ti, route:d.trips[j.ti], head:d.head[j.ti], a, b:s, dep:c[j.kb], arr:c[j.ka+1]}); s=a; }
   const rides = legs.filter(l => l.type==="ride"); if(!rides.length) return null;
-  const w0 = dA.dist[D.stops[s].node] + D.stops[s].conn;
+  const w0 = walkCost(dA, D.stops[s]);
   legs.unshift({type:"walk", d:w0, b:s, fromStart:true});
   const leave = rides[0].dep - w0/WALK*60 - 60;   // a minute to spare at the stop
   legs[0].t0 = leave; legs[0].t1 = rides[0].dep;
   return {legs, rides, leave, arrive:best, key:rides.map(r => r.ti).join(",")}; }
 function planTrip(A, B, day, t0){
-  const dA = dijkstra([[A.node, A.conn]]), dB = dijkstra([[B.node, B.conn]], Infinity, true);
-  const walkM = dA.dist[B.node] + B.conn + 0, walkMin = walkM / WALK;
+  const dA = walkFrom(A), dB = walkTo(B);
+  const sa=snapOf(A), sb=snapOf(B), walkM = Math.min(walkCost(dA, B), sa.e===sb.e ? sa.conn + sb.conn + Math.abs(sa.f-sb.f)*D.el[sa.e] : Infinity), walkMin = walkM / WALK;
   const opts = []; let t = t0;
   for(let n=0; n<8 && opts.length<4; n++){ const o = scan(A, B, day, t, dA, dB); if(!o) break;
     if(!opts.some(p => p.key===o.key)) opts.push(o); t = o.leave + 120; }
@@ -1015,11 +1079,12 @@ function planTrip(A, B, day, t0){
     if(liveOK(day)) for(const l of o.rides){ const p = predict(day, l.ti, l.a, l.dep); if(p) l.live = p; } }
   return keep; }
 function legGeom(l, o, A, B, dA, dB, day){
+  const set = w => { l.pts = w.pts; l.st = {len:w.len, up:w.up, dn:w.dn}; };
   if(l.type==="walk"){
-    if(l.fromStart && l.toEnd){ l.pts = treePath(dA, B.node); l.pts.unshift(llM(A)); l.pts.push(llM(B)); l.st = treeStats(dA, B.node); l.st.len += A.conn + B.conn; }
-    else if(l.fromStart){ const s=D.stops[l.b]; l.pts = treePath(dA, s.node); l.pts.unshift(llM(A)); l.pts.push([s.mx, s.my]); l.st = treeStats(dA, s.node); l.st.len += A.conn + s.conn; }
-    else { const s=D.stops[l.a]; l.pts = treePath(dB, s.node).reverse(); l.pts.unshift([s.mx, s.my]); l.pts.push(llM(B)); l.st = treeStats(dB, s.node); l.st.len += B.conn + s.conn; } }
-  else if(l.type==="xfer"){ const a=D.stops[l.a], b=D.stops[l.b], t=dijkstra([[a.node, a.conn]], 1200); l.pts = treePath(t, b.node); l.pts.unshift([a.mx,a.my]); l.pts.push([b.mx,b.my]); l.st = treeStats(t, b.node); }
+    if(l.fromStart && l.toEnd) set(walkLine(dA, A, B));
+    else if(l.fromStart) set(walkLine(dA, A, D.stops[l.b]));
+    else set(walkLine(dB, D.stops[l.a], B)); }
+  else if(l.type==="xfer"){ const a=D.stops[l.a], b=D.stops[l.b]; set(walkLine(walkFrom(a, 3000), a, b)); }
   else { l.pts = rideGeom(day, l.ti, l.dep, l.arr); l.via = rideStops(day, l.ti, l.a, l.dep, l.b, l.arr); } }
 function rideGeom(day, ti, dep, arr){ const gi = D.days[day].shape?.[ti]; if(gi == null) return [];
   const g = shapeGeo(gi), tl = tripTimeline(day, ti, gi); if(tl.length < 2) return [];
@@ -1066,11 +1131,9 @@ function drawAll(ctx,X,Y,z,size){
     ctx.strokeStyle=RT(sh.route)[2]; ctx.globalAlpha = F? (dark? .16 : .12) : (dark? .32 : .26); ctx.lineWidth=Math.max(1.5, 2.6*sc); ctx.stroke(); ctx.globalAlpha=1; }
   // routes in focus
   if(F){ const w = Math.max(4, 5*sc);
-    if(F.trip && S.leg != null){ const l = S.leg==="end" ? null : F.trip.legs[S.leg];
-      if(l && l.pts && l.pts.length){ ctx.beginPath(); lineP(ctx,X,Y,l.pts); ctx.strokeStyle = l.type==="ride" ? RT(l.route)[2] : C.accent; ctx.globalAlpha=.35; ctx.lineWidth=Math.min(30, Math.max(18, 20*sc)); ctx.stroke(); ctx.globalAlpha=1; }
-      if(S.leg==="end"){ const x=X(mercX(S.to.lon)), y=Y(mercY(S.to.lat)); ctx.beginPath(); ctx.arc(x,y,22,0,6.2832); ctx.fillStyle=C.accent; ctx.globalAlpha=.25; ctx.fill(); ctx.globalAlpha=1; } }
     if(F.trip){ for(const ri of F.routes){ for(const sh of D.shapes) if(sh.route===ri){ ctx.beginPath(); line(ctx,X,Y,sh.xs,sh.ys); ctx.strokeStyle=RT(ri)[2]; ctx.globalAlpha=.4; ctx.lineWidth=Math.max(2,3*sc); ctx.stroke(); ctx.globalAlpha=1; } }
-      for(const l of F.trip.rides){ ctx.beginPath(); lineP(ctx,X,Y,l.pts); cased(ctx, Math.min(11, Math.max(5, 7*sc)), RT(l.route)[2], C); } }
+      const picked = S.leg==null ? null : S.leg==="end" ? "end" : F.trip.legs[S.leg];
+      for(const l of F.trip.rides){ const on = !picked || picked===l, w = Math.min(11, Math.max(5, 7*sc)); ctx.beginPath(); lineP(ctx,X,Y,l.pts); cased(ctx, picked===l ? w*1.35 : w, RT(l.route)[2], C, on ? 1 : .45); } }
     else if(F.bus){ const gi = F.bus.info.ti!=null ? D.days[F.bus.info.day].shape?.[F.bus.info.ti] : null, ri=[...F.routes][0];
       if(gi!=null){ const s=tshapeM(gi); ctx.beginPath(); line(ctx,X,Y,s.xs,s.ys); cased(ctx, w, RT(ri)[2], C); }
       else for(const sh of D.shapes) if(sh.route===ri){ ctx.beginPath(); line(ctx,X,Y,sh.xs,sh.ys); cased(ctx, w, RT(ri)[2], C); } }
@@ -1084,13 +1147,17 @@ function drawAll(ctx,X,Y,z,size){
   drawStops(ctx,X,Y,z,size,C,F);
   if(typeof drawLive==="function") drawLive(ctx,X,Y,z);
   drawLabels(ctx,X,Y,z,size,C);
-  // walking legs of the chosen trip, on top
-  if(F && F.trip){ for(const l of F.trip.legs){ if(l.type==="ride" || !l.pts) continue; ctx.beginPath(); lineP(ctx,X,Y,l.pts);
-      ctx.strokeStyle=C.panel; ctx.lineWidth=Math.min(12,Math.max(6,8*sc)); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.min(6,Math.max(3,4*sc)); ctx.setLineDash([1, Math.min(11,Math.max(6,7*sc))]); ctx.stroke(); ctx.setLineDash([]); }
+  // walking legs of the chosen trip, on top: round dots, each with a thin halo, like footsteps on the map
+  if(F && F.trip){ const picked = S.leg==null ? null : S.leg==="end" ? F.trip.legs[F.trip.legs.length-1] : F.trip.legs[S.leg];
+    for(const l of F.trip.legs){ if(l.type==="ride" || !l.pts) continue; walkDots(ctx,X,Y,l.pts,sc,C, picked===l, !picked || picked===l); }
     for(const l of F.trip.rides){ for(const si of [l.a, l.b]){ const s=D.stops[si]; ring(ctx, X(s.mx), Y(s.my), Math.min(10, Math.max(6, 6*sc)), RT(l.route)[2], C); } } }
-  else if(S.tab==="plan" && S.opts && S.opts[S.opt] && S.opts[S.opt].walkOnly){ const l=S.opts[S.opt].legs[0]; ctx.beginPath(); lineP(ctx,X,Y,l.pts);
-    ctx.strokeStyle=C.panel; ctx.lineWidth=Math.min(12,Math.max(6,8*sc)); ctx.stroke(); ctx.strokeStyle=C.ink; ctx.lineWidth=Math.min(6,Math.max(3,4*sc)); ctx.setLineDash([1, Math.min(11,Math.max(6,7*sc))]); ctx.stroke(); ctx.setLineDash([]); }
+  else if(S.tab==="plan" && S.opts && S.opts[S.opt] && S.opts[S.opt].walkOnly){ walkDots(ctx,X,Y,S.opts[S.opt].legs[0].pts,sc,C, S.leg!=null, true); }
 }
+function walkDots(ctx,X,Y,pts,sc,C,sel,on){ if(!pts || pts.length<2) return;
+  const d = Math.min(8, Math.max(4.5, 5*sc)) * (sel ? 1.2 : 1), gap = d*1.9;
+  ctx.save(); ctx.lineCap="round"; ctx.lineJoin="round"; ctx.globalAlpha = on ? 1 : .45; ctx.setLineDash([0, gap]);
+  ctx.beginPath(); lineP(ctx,X,Y,pts); ctx.strokeStyle=C.panel; ctx.lineWidth=d+3.5; ctx.stroke();
+  ctx.strokeStyle = sel ? C.accent : C.ink; ctx.lineWidth=d; ctx.stroke(); ctx.restore(); }
 /* ---------- places layers (OpenStreetMap shops and services + City facilities) ---------- */
 // key, label, D.pts list, CAT colour/glyph, min zoom, on by default
 const PLACES = [
@@ -1115,7 +1182,7 @@ function placePopup(hit){ const {p, cat} = hit; S.place = hit; base.draw();
   const nm = p.name && !/^playground$/i.test(p.name) ? p.name : kind, wh = placeWhere(p, p.lat, p.lon);
   const ep = {label: (D.placeCount && D.placeCount.get(nm.toLowerCase()) > 1 || nm===kind) && wh ? `${nm}, ${wh}` : nm, lat:p.lat, lon:p.lon, node:p.node, conn:p.conn};
   // closest stops on foot
-  const t = dijkstra([[p.node, p.conn]], 8*WALK, true), near=[]; D.stops.forEach(s => { const d=t.dist[s.node]+s.conn; if(d<=8*WALK) near.push([s.i,d]); }); near.sort((a,b)=>a[1]-b[1]);
+  const t = walkTo(p, 8*WALK), near=[]; D.stops.forEach(s => { const d=walkCost(t, s); if(d<=8*WALK) near.push([s.i,d]); }); near.sort((a,b)=>a[1]-b[1]);
   const day=liveDay(), I=idx(day), st = near.slice(0,2);
   const html = `<div class="mpop">${iconSVG(glyphFor(cat,p), CAT[cat].color, 26)}<b>${esc(ep.label)}</b><div class="pk">${esc(kind)}${placeWhere(p,p.lat,p.lon)? " · "+esc(placeWhere(p,p.lat,p.lon)) : ""}</div>
     ${st.length ? st.map(([si,d]) => `<button class="pst" data-m="stop" data-si="${si}"><span>${esc(D.stops[si].name)}<small> · ${mins(d/WALK*60)} min walk</small></span><span class="rs">${[...I.sRoutes[si]].slice(0,5).map(ri=>chip(ri)).join("")}</span></button>`).join("") : `<div class="pk">No bus stop within an 8-minute walk</div>`}
@@ -1141,6 +1208,16 @@ function drawStops(ctx,X,Y,z,size,C,F){
       else { ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fillStyle=C.panel; ctx.fill(); ctx.lineWidth=1.4; ctx.strokeStyle=C.ink; ctx.stroke(); }
       ctx.globalAlpha=1; } }
   if(on && z>=12) for(const si of on){ const s=D.stops[si], x=X(s.mx), y=Y(s.my); if(inView(x,y)) ring(ctx, x, y, z>=15? 5 : 3.5, col, C); }
+  // platform numbers at the big hubs (University Centre, Guelph Central Station) once the platforms spread apart
+  if(z>=17){ const full = z>=18, boxes=[], font = getComputedStyle(document.body).getPropertyValue("--f-body") || "system-ui";
+    ctx.save(); ctx.font = `700 ${full? 13 : 12}px ${font}`; ctx.textBaseline="middle"; ctx.lineJoin="round";
+    for(const s of D.stops){ const m = /Platform (.+)$/.exec(s.name); if(!m) continue; const x=X(s.mx), y=Y(s.my); if(!inView(x,y)) continue;
+      const t = full ? "Platform " + m[1] : m[1], w = ctx.measureText(t).width, gap = (S.to && S.to.stop===s.i) || (S.from && S.from.stop===s.i) || (S.tab==="stops" && S.stop===s.i) ? 20 : 11;
+      const hit = bx => boxes.some(b => bx[0]<b[2] && bx[2]>b[0] && bx[1]<b[3] && bx[3]>b[1]);
+      // right of the stop if there's room, else left of it, else leave it out
+      let lx = x + gap, bx = [lx-2, y-8, lx+w+2, y+8]; if(hit(bx)){ lx = x - gap - w; bx = [lx-2, y-8, lx+w+2, y+8]; if(hit(bx)) continue; }
+      boxes.push(bx); ctx.strokeStyle=C.panel; ctx.lineWidth=3.5; ctx.strokeText(t, lx, y); ctx.fillStyle=C.ink; ctx.fillText(t, lx, y); }
+    ctx.restore(); }
   // the selected stop, or the stop a "find bus" tap is showing the bus heading to
   const hs = S.bus ? (S.busStop ?? null) : S.tab==="stops" ? S.stop : null;
   if(hs!=null && D.stops[hs]){ const s=D.stops[hs], x=X(s.mx), y=Y(s.my);
@@ -1153,11 +1230,12 @@ const Legend = L.Control.extend({ options:{position:"bottomright"}, onAdd(){ thi
 function updateLegend(){ if(!legend) return;
   if(showWalkArea()){ const bands=bandsFor(WALK_AREA); legend.set(`<b>Walking time, minutes</b><div class="ramp">${bands.map(([lo,hi,c])=>`<i style="background:${c};flex:${hi-lo}"></i>`).join("")}</div><div class="ticks">${[0,...bands.map(b=>b[1])].map(t=>`<span>${t}</span>`).join("")}</div>`); return; }
   legend.set(""); }
-function redraw(){ updateLegend(); busFocus(); updateNextStop(); updatePickHint(); if(base) base.draw(); }
+function redraw(){ updateLegend(); busFocus(); updateNextStop(); updateStepMarks(); updatePickHint(); if(base) base.draw(); }
 
 /* ---------- pins ---------- */
+const FLAG_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21V4 M7 4.5h10l-2.2 3.6L17 11.7H7" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 function setPin(k, ep){ if(pins[k]){ pins[k].remove(); pins[k]=null; } if(!ep) return;
-  pins[k] = L.marker([ep.lat, ep.lon], {icon:L.divIcon({className:"", html:`<div class="ppin ${k==="to"?"to":""}"></div>`, iconSize:[24,24], iconAnchor: k==="to"? [12,24] : [11,11]}), keyboard:false, draggable:true, autoPan:true, title: k==="to"? "Drag to move your destination" : "Drag to move your start", zIndexOffset:1200}).addTo(map);
+  pins[k] = L.marker([ep.lat, ep.lon], {icon:L.divIcon({className:"", html: k==="to" ? `<div class="ppin to">${FLAG_SVG}</div>` : `<div class="ppin"></div>`, iconSize: k==="to"? [30,30] : [22,22], iconAnchor: k==="to"? [15,15] : [11,11]}), keyboard:false, draggable:true, autoPan:true, title: k==="to"? "Drag to move your destination" : "Drag to move your start", zIndexOffset:1200}).addTo(map);
   pins[k].on("dragend", ev => { const ll=ev.target.getLatLng(), ai=nearestAddress(ll.lat, ll.lng); setEnd(k, tapPoint(ll), {view:false}); }); }
 /* ---------- choosing a start or destination by tapping the map ----------
    In Plan, a tap fills whichever end is still empty (start first, then destination).
@@ -1238,7 +1316,7 @@ function goHub(k){ const ep=hubEP(k); if(!ep) return; hideSugg(); S.pick=null; i
   else $("fromQ").focus(); }
 function updateHubs(){ for(const b of document.querySelectorAll(".hub[data-hub]")) b.setAttribute("aria-pressed", !!(S.to && S.to.hub===b.dataset.hub)); }
 function setEnd(f, ep, {go=true, view=true}={}){ S[f]=ep; $(f+"Q").value = ep ? ep.label : ""; S.opts=null; S.opt=0;
-  if(f==="from") S.walk = ep ? dijkstra([[ep.node, ep.conn]], (WALK_AREA+1)*WALK) : null;
+  if(f==="from") S.walk = ep ? walkFrom(ep, (WALK_AREA+1)*WALK) : null;
   setPin(f, S.tab==="plan" ? ep : null);
   if(go && S.from && S.to) runPlan(); else { renderPlan(); if(ep && f==="from" && view) map.setView([ep.lat, ep.lon], Math.max(map.getZoom(), 15)); }
   redraw(); syncURL(); updateHubs(); }
@@ -1249,12 +1327,13 @@ function runPlan(){ if(!S.from || !S.to) { renderPlan(); return; } const {day, t
 function showLeg(k){ const o = S.opts && S.opts[S.opt]; if(!o) return;
   if(S.leg === k){ S.leg = null; renderPlan(); fitTrip(); redraw(); return; }
   S.leg = k; const b = L.latLngBounds([]);
-  if(k === "end"){ b.extend([S.to.lat, S.to.lon]); const last=o.legs[o.legs.length-1]; (last.pts||[]).slice(-6).forEach(p => b.extend(unmerc(p[0],p[1]))); }
+  if(k === "end"){ b.extend([S.to.lat, S.to.lon]); const last=o.legs[o.legs.length-1]; (last.pts||[]).forEach(p => b.extend(unmerc(p[0],p[1]))); }
   else { const l=o.legs[k]; for(const p of l.pts||[]) b.extend(unmerc(p[0],p[1]));
     if(l.type==="walk" && l.fromStart) b.extend([S.from.lat, S.from.lon]); if(l.type==="walk" && l.toEnd) b.extend([S.to.lat, S.to.lon]); }
   if(b.isValid()){ const phone = innerWidth <= 760;
-    if(b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), 17);
-    else map.fitBounds(b, {paddingTopLeft:[40, 70], paddingBottomRight:[40, phone? 50 : 60], maxZoom:17}); }
+    // as close as the map goes while keeping both ends in view, with room above each end for its label
+    if(b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), 18);
+    else map.fitBounds(b, {paddingTopLeft:[56, 112], paddingBottomRight:[56, phone? 56 : 64], maxZoom:19}); }
   document.querySelectorAll("[data-leg]").forEach(r => r.setAttribute("aria-pressed", String(r.dataset.leg) === String(k)));
   redraw(); }
 function fitTrip(){ const o = S.opts && S.opts[S.opt]; if(!o) return; const b = L.latLngBounds([]); for(const l of o.legs) for(const p of l.pts||[]) b.extend(unmerc(p[0],p[1]));
@@ -1272,7 +1351,7 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
     return; }
   // no trip yet: buses within a 10-minute walk of the start
   if(!S.from){ el.innerHTML = `<p class="empty">Pick a start and a destination: type an address, a place like a library or restaurant, or a stop number. Or just tap the map, once for the start and once for where you're going. You can drag either pin to fine-tune it.</p>`; return; }
-  const near = []; D.stops.forEach((s,si) => { const d=S.walk.dist[s.node]+s.conn; if(d <= WALK_AREA*WALK) near.push([si,d]); });
+  const near = []; D.stops.forEach((s,si) => { const d=walkCost(S.walk, s); if(d <= WALK_AREA*WALK) near.push([si,d]); });
   const rank = new Map(near.map(([si,d]) => [si,d])), {day:dd, t} = planTime();
   const list = departures(new Set(rank.keys()), dd, t, t+3600, si => rank.get(si));
   const al = liveOK(dd) ? alertsFor(new Set(list.map(g=>g.route)), new Set(rank.keys())) : [];
@@ -1404,6 +1483,21 @@ function roadBuses(){ const day=liveDay(), d=D.days[day], ri=S.route, h=S.rdir, 
   return out.sort((a,b) => a.t-b.t || String(a.id).localeCompare(String(b.id))); }
 // a pulsing marker on the stop the selected bus is approaching; follows the bus as it moves
 let nextMk = null, nextTimer = null;
+// the two ends of the step picked in a trip's directions, each marked and labelled on the map
+let stepMks = [], stepKey = "";
+const platOf = si => { const m = /Platform (.+)$/.exec(D.stops[si].name); return m ? "Platform " + m[1] : ""; };
+function stepEnds(o, k){ const L_ = o.legs, A = {pt:[S.from.lat,S.from.lon], text:"Start", c:"#2EAD5E", k:"#fff", pin:true}, B = {pt:[S.to.lat,S.to.lon], text:"Destination", c:"#D9472B", k:"#fff", pin:true};
+  const stop = (si, verb, ri) => { const s=D.stops[si], R = ri!=null ? RT(ri) : null, pl=platOf(si);
+    return {pt:[s.lat,s.lon], text: verb + (R ? " " + R[0] : "") + (pl ? " · " + pl : ""), c: R ? R[2] : "#1C2A2D", k: R ? routeInk(R) : "#fff"}; };
+  if(k==="end"){ const last=L_[L_.length-1]; return last.type==="walk" && last.a!=null ? [stop(last.a, "Get off", L_[L_.length-2]?.route), B] : [B]; }
+  const l = L_[k], next = L_[k+1], prev = L_[k-1];
+  if(l.type==="ride") return [stop(l.a, "Board", l.route), stop(l.b, "Get off", l.route)];
+  if(l.type==="xfer") return [stop(l.a, "Get off", prev && prev.route), stop(l.b, "Board", next && next.route)];
+  return [l.fromStart ? A : stop(l.a, "Get off", prev && prev.route), l.toEnd ? B : stop(l.b, "Board", next && next.route)]; }
+function updateStepMarks(){ const o = S.tab==="plan" && S.opts && S.opts[S.opt], key = o && S.leg!=null ? S.opt+"|"+S.leg+"|"+o.key : "";
+  if(key===stepKey) return; stepKey = key; stepMks.forEach(m => m.remove()); stepMks = []; if(!key) return;
+  for(const [i,e] of stepEnds(o, S.leg).entries()) stepMks.push(L.marker(e.pt, {interactive:false, keyboard:false, zIndexOffset: 1300 + i,
+    icon: L.divIcon({className:"", iconSize:[0,0], html:`<div class="stepmk${e.pin? " atpin" : ""}" style="--c:${e.c};--k:${e.k}"><i></i><b></b><span>${esc(e.text)}</span></div>`})}).addTo(map)); }
 function updateNextStop(){ const st = S.bus && VS.get(S.bus), n = st && LV.markers.get(S.bus) ? nextStopOf(st) : null;
   if(!n){ if(nextMk){ nextMk.remove(); nextMk=null; } clearInterval(nextTimer); nextTimer=null; return; }
   const s=D.stops[n.si], col=st.R[2], key=n.si+"|"+col;

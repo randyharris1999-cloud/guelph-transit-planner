@@ -134,8 +134,13 @@
 .mpop button{display:block;width:100%;font:inherit;font-size:16px;font-weight:600;padding:7px 10px;margin-top:5px;border-radius:7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;text-align:left}
 .mpop button:hover{background:var(--chip)}
 .ppin{width:22px;height:22px;border-radius:50%;background:var(--panel);border:5px solid #2EAD5E;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-.ppin.to{border:0;background:var(--ink);border-radius:50% 50% 50% 0;transform:rotate(-45deg);width:24px;height:24px;display:grid;place-items:center}
-.ppin.to::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--panel)}
+.ppin.to{width:30px;height:30px;border:3px solid #fff;background:#D9472B;display:grid;place-items:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.35)}
+.ppin.to svg{width:16px;height:16px;margin-left:2px}
+.stepmk{position:absolute;left:0;top:0;pointer-events:none}
+.stepmk i{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;background:var(--c);opacity:.22}
+.stepmk b{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:var(--panel,#fff);border:5px solid var(--c);box-sizing:border-box;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.35)}
+.stepmk.atpin b{display:none}
+.stepmk span{position:absolute;left:0;top:-48px;transform:translateX(-50%);white-space:nowrap;background:var(--c);color:var(--k);font:700 14px/1 var(--f-body,system-ui);padding:5px 9px;border-radius:99px;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.3)}
 .me{width:16px;height:16px;border-radius:50%;background:#1A73E8;border:3px solid #fff;box-sizing:border-box;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 1px 4px rgba(0,0,0,.35);position:relative}
 .busm.sel svg{filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 6px var(--ink))}
 .busm{transition:opacity .3s}
