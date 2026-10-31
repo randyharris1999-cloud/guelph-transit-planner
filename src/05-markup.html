@@ -59,7 +59,7 @@
 .leg[data-leg][aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,var(--bg))}
 .leg[data-leg]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .leg[data-leg][aria-pressed="true"] .d>b::after{content:"  · on the map";font-weight:500;font-size:14px;color:var(--accent-text)}
-.leg .hills{display:flex;gap:8px;margin-top:3px}
+.leg .hills{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:3px}
 .leg .hill{font-family:var(--f-mono);font-size:14px;font-weight:500;padding:0 5px;border-radius:4px;background:var(--chip)}
 .leg .hill.up{color:var(--warn)}
 .leg .d details ol{margin:4px 0 0;padding-left:18px;color:var(--muted)}
@@ -136,6 +136,9 @@
 .ppin{width:22px;height:22px;border-radius:50%;background:var(--panel);border:5px solid #2EAD5E;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .ppin.to{width:30px;height:30px;border:3px solid #fff;background:#D9472B;display:grid;place-items:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.35)}
 .ppin.to svg{width:16px;height:16px;margin-left:2px}
+.legend .sl{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:1.45}
+.legend .sl i{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--rule);flex:none}
+.hill.steep{font-weight:700}
 .stepmk{position:absolute;left:0;top:0;pointer-events:none}
 .stepmk i{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;background:var(--c);opacity:.22}
 .stepmk b{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:var(--panel,#fff);border:5px solid var(--c);box-sizing:border-box;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.35)}

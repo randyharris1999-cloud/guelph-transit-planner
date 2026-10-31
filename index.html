@@ -251,7 +251,7 @@ footer{font-size:14px;color:var(--muted);margin-top:auto}
 .leg[data-leg][aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,var(--bg))}
 .leg[data-leg]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .leg[data-leg][aria-pressed="true"] .d>b::after{content:"  · on the map";font-weight:500;font-size:14px;color:var(--accent-text)}
-.leg .hills{display:flex;gap:8px;margin-top:3px}
+.leg .hills{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:3px}
 .leg .hill{font-family:var(--f-mono);font-size:14px;font-weight:500;padding:0 5px;border-radius:4px;background:var(--chip)}
 .leg .hill.up{color:var(--warn)}
 .leg .d details ol{margin:4px 0 0;padding-left:18px;color:var(--muted)}
@@ -328,6 +328,9 @@ footer{font-size:14px;color:var(--muted);margin-top:auto}
 .ppin{width:22px;height:22px;border-radius:50%;background:var(--panel);border:5px solid #2EAD5E;box-sizing:border-box;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .ppin.to{width:30px;height:30px;border:3px solid #fff;background:#D9472B;display:grid;place-items:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.35)}
 .ppin.to svg{width:16px;height:16px;margin-left:2px}
+.legend .sl{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:1.45}
+.legend .sl i{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--rule);flex:none}
+.hill.steep{font-weight:700}
 .stepmk{position:absolute;left:0;top:0;pointer-events:none}
 .stepmk i{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;background:var(--c);opacity:.22}
 .stepmk b{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:var(--panel,#fff);border:5px solid var(--c);box-sizing:border-box;box-shadow:0 0 0 2px #fff,0 1px 4px rgba(0,0,0,.35)}
@@ -971,20 +974,38 @@ function partial(sn, side){ const out=[], {e, k} = sn;
   else { for(let j=D.eoff[e+1]-1; j>k; j--) out.push([D.gx[j], D.gy[j]]); }
   out.push([sn.mx, sn.my]); return out; }
 function rootOf(T, node){ let u=node, guard=0; while(guard++<20000){ const e=T.pred[u]; if(e<0) return u; u = D.ea[e]===u ? D.eb[e] : D.ea[e]; } return u; }
-// a full walk drawn along the network: from point P to point Q, using tree T rooted at P (forward) or at Q (reverse)
+// a tree's path as pieces of edges, root -> node, each piece oriented the way it's walked
+function treeChain(T, node){ const out=[]; let u=node, guard=0;
+  while(guard++<20000){ const e=T.pred[u]; if(e<0) break; const a=D.ea[e], from = a===u ? D.eb[e] : a, seg=[];
+    for(let k=D.eoff[e];k<D.eoff[e+1];k++) seg.push([D.gx[k],D.gy[k]]); const ab = from===a; if(!ab) seg.reverse();   // from -> u
+    out.push({e, ab, pts:seg}); u=from; }
+  return out.reverse(); }
+const flip = pc => ({e:pc.e, ab:!pc.ab, frac:pc.frac, pts:pc.pts.slice().reverse()});
+// slope of an edge walked a->b (ab) or b->a, from the LIDAR climb and descent: + uphill, - downhill
+function edgeSlope(e, ab){ if(!D.eup || e<0 || D.el[e] < 12) return 0; const up = ab ? D.eup[e] : D.edn[e], dn = ab ? D.edn[e] : D.eup[e];
+  return up >= dn ? up/D.el[e] : -dn/D.el[e]; }
+// a full walk drawn along the network: from point P to point Q, using tree T rooted at P (forward) or at Q (reverse).
+// Returns the line, a slope for each of its segments, its length, climb and descent, and its steepest parts.
 function walkLine(T, P, Q){ const pin = o => [mercX(o.lon), mercY(o.lat)], sp=snapOf(P), sq=snapOf(Q);
+  let pieces = null, len = 0, up = 0, dn = 0;
   // both on the same stretch of path: just walk along it
-  if(sp.e===sq.e){ const g=[]; const lo=Math.min(sp.k,sq.k), hi=Math.max(sp.k,sq.k); for(let j=lo+1;j<=hi;j++) g.push([D.gx[j],D.gy[j]]); if(sp.k>sq.k || (sp.k===sq.k && sp.f>sq.f)) g.reverse();
+  if(sp.e===sq.e){ const g=[]; const lo=Math.min(sp.k,sq.k), hi=Math.max(sp.k,sq.k); for(let j=lo+1;j<=hi;j++) g.push([D.gx[j],D.gy[j]]); const fwd = sp.f <= sq.f; if(!fwd) g.reverse();
     const direct = sp.conn + sq.conn + Math.abs(sp.f-sq.f)*D.el[sp.e];
-    if(direct <= (T.reverse ? walkCost(T, P) : walkCost(T, Q)) + 1) return {pts:[pin(P), [sp.mx,sp.my], ...g, [sq.mx,sq.my], pin(Q)], len:direct, up:0, dn:0}; }
-  const far = T.reverse ? P : Q, near = T.reverse ? Q : P, r = reachOf(T, far), root = rootOf(T, r.n), sn = snapOf(near), sf = snapOf(far);
-  const st = treeStats(T, r.n), mid = treePath(T, r.n);   // root -> r.n
-  const rootSide = D.ea[sn.e]===root ? "a" : "b";
-  const nearPart = partial(sn, rootSide), farPart = partial(sf, r.side);   // root end -> near spot, far end -> far spot
-  let pts = [...nearPart.slice().reverse(), ...mid.slice(1), ...farPart.slice(1)];   // near spot -> far spot
-  pts = [pin(near), ...pts, pin(far)]; if(T.reverse) pts.reverse();
-  const len = st.len + sn.conn + sf.conn + D.el[sn.e]*(rootSide==="a" ? sn.f : 1-sn.f) + D.el[sf.e]*(r.side==="a" ? sf.f : 1-sf.f);
-  return {pts, len, up:st.up, dn:st.dn}; }
+    if(direct <= (T.reverse ? walkCost(T, P) : walkCost(T, Q)) + 1){ pieces = [{e:-1, pts:[pin(P), [sp.mx,sp.my]]}, {e:sp.e, ab:fwd, frac:Math.abs(sp.f-sq.f), pts:[[sp.mx,sp.my], ...g, [sq.mx,sq.my]]}, {e:-1, pts:[[sq.mx,sq.my], pin(Q)]}]; len = direct; } }
+  if(!pieces){ const far = T.reverse ? P : Q, near = T.reverse ? Q : P, r = reachOf(T, far), root = rootOf(T, r.n), sn = snapOf(near), sf = snapOf(far);
+    const st = treeStats(T, r.n), rootSide = D.ea[sn.e]===root ? "a" : "b";
+    // near spot -> root end of its edge, the tree path, far end -> far spot (all in tree order: near -> far)
+    const nearPc = {e:sn.e, ab: rootSide!=="a", frac: rootSide==="a" ? sn.f : 1-sn.f, pts: partial(sn, rootSide).reverse()}, farPc = {e:sf.e, ab: r.side==="a", frac: r.side==="a" ? sf.f : 1-sf.f, pts: partial(sf, r.side)};
+    pieces = [{e:-1, pts:[pin(near), [sn.mx,sn.my]]}, nearPc, ...treeChain(T, r.n), farPc, {e:-1, pts:[[sf.mx,sf.my], pin(far)]}];
+    // a reverse tree is walked towards its root: turn the whole thing around
+    if(T.reverse){ pieces = pieces.reverse().map(pc => pc.e<0 ? {e:-1, pts:pc.pts.slice().reverse()} : flip(pc)); }
+    len = st.len + sn.conn + sf.conn + D.el[sn.e]*(rootSide==="a" ? sn.f : 1-sn.f) + D.el[sf.e]*(r.side==="a" ? sf.f : 1-sf.f); }
+  // flatten, with a slope per segment; note the steepest stretches worth mentioning (at least 12 m long)
+  const pts=[], sg=[]; let steepUp=0, steepDn=0;
+  for(const pc of pieces){ const sl = pc.e>=0 ? edgeSlope(pc.e, pc.ab) : 0;
+    if(pc.e>=0 && D.eup){ const fr = pc.frac ?? 1; up += fr*(pc.ab ? D.eup[pc.e] : D.edn[pc.e]); dn += fr*(pc.ab ? D.edn[pc.e] : D.eup[pc.e]); } if(sl>steepUp) steepUp=sl; if(-sl>steepDn) steepDn=-sl;
+    for(let j=0;j<pc.pts.length;j++){ if(pts.length && j===0){ const q=pts[pts.length-1]; if(q[0]===pc.pts[0][0] && q[1]===pc.pts[0][1]) continue; sg.push(0); } else if(j>0) sg.push(sl); pts.push(pc.pts[j]); } }
+  return {pts, sg, len, up, dn, steepUp, steepDn}; }
 function nearestAddress(lat,lon){ const x=(lon-LON0)*KX, y=(lat-LAT0)*KY; let best=-1, bd=Infinity;
   for(let r=1;r<=6 && best<0;r+=2) for(let gx=-r;gx<=r;gx++) for(let gy=-r;gy<=r;gy++){ const a=D.agrid.get((Math.floor(x/100)+gx)+":"+(Math.floor(y/100)+gy)); if(a) for(const i of a){ const d=(D.ax[i]-x)**2+(D.ay[i]-y)**2; if(d<bd){bd=d;best=i;} } }
   return bd < 120*120 ? best : -1; }
@@ -1079,7 +1100,7 @@ function planTrip(A, B, day, t0){
     if(liveOK(day)) for(const l of o.rides){ const p = predict(day, l.ti, l.a, l.dep); if(p) l.live = p; } }
   return keep; }
 function legGeom(l, o, A, B, dA, dB, day){
-  const set = w => { l.pts = w.pts; l.st = {len:w.len, up:w.up, dn:w.dn}; };
+  const set = w => { l.pts = w.pts; l.sg = w.sg; l.st = {len:w.len, up:w.up, dn:w.dn, steepUp:w.steepUp, steepDn:w.steepDn}; };
   if(l.type==="walk"){
     if(l.fromStart && l.toEnd) set(walkLine(dA, A, B));
     else if(l.fromStart) set(walkLine(dA, A, D.stops[l.b]));
@@ -1149,15 +1170,23 @@ function drawAll(ctx,X,Y,z,size){
   drawLabels(ctx,X,Y,z,size,C);
   // walking legs of the chosen trip, on top: round dots, each with a thin halo, like footsteps on the map
   if(F && F.trip){ const picked = S.leg==null ? null : S.leg==="end" ? F.trip.legs[F.trip.legs.length-1] : F.trip.legs[S.leg];
-    for(const l of F.trip.legs){ if(l.type==="ride" || !l.pts) continue; walkDots(ctx,X,Y,l.pts,sc,C, picked===l, !picked || picked===l); }
+    for(const l of F.trip.legs){ if(l.type==="ride" || !l.pts) continue; walkDots(ctx,X,Y,l.pts,sc,C, picked===l, !picked || picked===l, l.sg); }
     for(const l of F.trip.rides){ for(const si of [l.a, l.b]){ const s=D.stops[si]; ring(ctx, X(s.mx), Y(s.my), Math.min(10, Math.max(6, 6*sc)), RT(l.route)[2], C); } } }
-  else if(S.tab==="plan" && S.opts && S.opts[S.opt] && S.opts[S.opt].walkOnly){ walkDots(ctx,X,Y,S.opts[S.opt].legs[0].pts,sc,C, S.leg!=null, true); }
+  else if(S.tab==="plan" && S.opts && S.opts[S.opt] && S.opts[S.opt].walkOnly){ walkDots(ctx,X,Y,S.opts[S.opt].legs[0].pts,sc,C, S.leg!=null, true, S.opts[S.opt].legs[0].sg); }
 }
-function walkDots(ctx,X,Y,pts,sc,C,sel,on){ if(!pts || pts.length<2) return;
+// walking slope classes from the LIDAR: under 5% gentle, 5–8% moderate, 8% and up steep (steeper than an accessible ramp)
+const SLOPE_COL = [null, "#E39A2D", "#D9472B"], slopeCls = g => Math.abs(g) >= .08 ? 2 : Math.abs(g) >= .05 ? 1 : 0;
+function walkDots(ctx,X,Y,pts,sc,C,sel,on,sg){ if(!pts || pts.length<2) return;
   const d = Math.min(8, Math.max(4.5, 5*sc)) * (sel ? 1.2 : 1), gap = d*1.9;
   ctx.save(); ctx.lineCap="round"; ctx.lineJoin="round"; ctx.globalAlpha = on ? 1 : .45; ctx.setLineDash([0, gap]);
   ctx.beginPath(); lineP(ctx,X,Y,pts); ctx.strokeStyle=C.panel; ctx.lineWidth=d+3.5; ctx.stroke();
-  ctx.strokeStyle = sel ? C.accent : C.ink; ctx.lineWidth=d; ctx.stroke(); ctx.restore(); }
+  // dots in runs of the same slope class, keeping the spacing continuous from run to run
+  const base = sel ? C.accent : C.ink; let i=0, run=0;
+  while(i < pts.length-1){ const cls = sg ? slopeCls(sg[i]||0) : 0; let j=i;
+    ctx.beginPath(); ctx.moveTo(X(pts[i][0]),Y(pts[i][1])); let L_=0;
+    while(j < pts.length-1 && (sg ? slopeCls(sg[j]||0) : 0)===cls){ const x0=X(pts[j][0]), y0=Y(pts[j][1]), x1=X(pts[j+1][0]), y1=Y(pts[j+1][1]); ctx.lineTo(x1,y1); L_ += Math.hypot(x1-x0,y1-y0); j++; }
+    ctx.lineDashOffset = -run; ctx.strokeStyle = cls ? SLOPE_COL[cls] : base; ctx.lineWidth = cls ? d*1.1 : d; ctx.stroke(); run += L_; i=j; }
+  ctx.restore(); }
 /* ---------- places layers (OpenStreetMap shops and services + City facilities) ---------- */
 // key, label, D.pts list, CAT colour/glyph, min zoom, on by default
 const PLACES = [
@@ -1229,6 +1258,10 @@ const Legend = L.Control.extend({ options:{position:"bottomright"}, onAdd(){ thi
   set(html){ this._d.innerHTML = html + snowLegend(); this._d.style.display = this._d.innerHTML.trim() ? "" : "none"; } });
 function updateLegend(){ if(!legend) return;
   if(showWalkArea()){ const bands=bandsFor(WALK_AREA); legend.set(`<b>Walking time, minutes</b><div class="ramp">${bands.map(([lo,hi,c])=>`<i style="background:${c};flex:${hi-lo}"></i>`).join("")}</div><div class="ticks">${[0,...bands.map(b=>b[1])].map(t=>`<span>${t}</span>`).join("")}</div>`); return; }
+  const o = S.tab==="plan" && S.opts && S.opts[S.opt];
+  if(o && D.eup){ const has = [0,0,0]; for(const l of o.legs) if(l.sg) for(const g of l.sg) has[slopeCls(g)] = 1;
+    if(has[1] || has[2]){ const row = (c, t) => `<div class="sl"><i style="background:${c}"></i>${t}</div>`;
+      legend.set(`<b>Walking slope</b>${row("var(--ink)", "Gentle, under 5%")}${has[1]? row(SLOPE_COL[1], "Moderate, 5–8%") : ""}${has[2]? row(SLOPE_COL[2], "Steep, 8% or more") : ""}`); return; } }
   legend.set(""); }
 function redraw(){ updateLegend(); busFocus(); updateNextStop(); updateStepMarks(); updatePickHint(); if(base) base.draw(); }
 
@@ -1359,6 +1392,9 @@ function renderPlan(){ if(S.tab!=="plan") return; const el=$("planOut"); const d
 // "uphill 14 m", shown when a walk climbs or drops at least 5 m
 function hillNote(l){ if(!l.st || !D.eup) return ""; const u=Math.round(l.st.up), d=Math.round(l.st.dn); const parts=[];
   if(u >= 5) parts.push(`<span class="hill up" title="Total climb on this walk">▲ ${u} m uphill</span>`); if(d >= 5) parts.push(`<span class="hill dn" title="Total descent on this walk">▼ ${d} m down</span>`);
+  const su=l.st.steepUp||0, sd=l.st.steepDn||0, pc = g => Math.round(g*100) + "%";
+  if(su >= .05) parts.push(`<span class="hill up ${su>=.08? "steep" : ""}" title="Steepest uphill stretch">steepest ${pc(su)} up</span>`);
+  if(sd >= .05) parts.push(`<span class="hill dn ${sd>=.08? "steep" : ""}" title="Steepest downhill stretch">steepest ${pc(sd)} down</span>`);
   return parts.length ? `<div class="hills">${parts.join("")}</div>` : ""; }
 function legsHTML(o, day){ const rows=[];
   const lg = i => `data-leg="${i}" role="button" tabindex="0" aria-pressed="${S.leg===i}" title="Show this part on the map"`;
