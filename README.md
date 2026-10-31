@@ -6,11 +6,11 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 
 **Plan**
 - The trip plans itself as soon as both ends are filled in, and re-plans when the time changes. There is no Plan trip button.
-- Start and destination: type an address, a place (library, park, restaurant, grocery store, clinic…), a station such as Stone Road Mall (any platform), or a stop number, use your location, or just tap the map: once for the start, once for the destination. Drag either pin to fine-tune it. The pin button in the destination box lets you re-pick the destination on the map.
+- Start and destination: type an address, a place (library, park, restaurant, grocery store, clinic…), a station such as Stone Road Mall (the trip starts or ends at whichever platform the bus uses, with no walk), or a stop number, use your location, or just tap the map: once for the start, once for the destination. Drag either pin to fine-tune it. The pin button in the destination box lets you re-pick the destination on the map.
 - Leave now (with live arrival predictions) or "Leave at…", which shows the day and time boxes.
 - Up to three trip options plus walking, with step-by-step legs, the stops on each ride, transfers, and live delays.
 - Tap any step of a trip (a walk, a ride, a transfer, or the arrival) to zoom the map as close as it can while showing both ends of that step. Each end is marked and labelled (Start, Board 99 · Platform 7, Get off, Destination). Tap the step again to see the whole trip.
-- Walks are drawn as dots along the sidewalks, paths and streets, coloured by slope from the LIDAR: dark under 5%, orange 5–8%, red 8% or more. A legend appears when a trip has moderate or steep stretches, and each walking step lists its climb, drop and steepest stretch.
+- Walks are drawn as dark dots along the sidewalks, paths and streets, turning orange (5–8%) or red (8% or more) on slopes from the LIDAR. A "Map key" button appears when a trip has moderate or steep stretches (open on desktop, tap to open on phones), and each walking step lists its climb, drop and steepest stretch.
 - "Find bus" on a trip option shows its first bus on the map.
 - Before the destination is set, the next buses from every stop within a 10-minute walk of the start.
 

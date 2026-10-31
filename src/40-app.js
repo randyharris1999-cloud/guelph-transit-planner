@@ -280,7 +280,8 @@ function searchAll(q, {stops=true, places=true, addresses=true}={}){
 /* ---------- trip planner: walk + connection scan ---------- */
 function scan(A, B, day, t0, dA, dB){
   const d=D.days[day], c=d.c, ns=D.stops.length, ea=new Float64Array(ns).fill(Infinity), jp=new Array(ns), tb=new Int32Array(d.trips.length).fill(-1), egress=new Float64Array(ns);
-  D.stops.forEach((s,si) => { const w=walkCost(dA, s); if(w<=MAXW){ ea[si]=t0 + w/WALK*60; jp[si]={w}; } egress[si]=walkCost(dB, s); });
+  const onA = new Set(A.stops||[]), onB = new Set(B.stops||[]);
+  D.stops.forEach((s,si) => { const w = onA.has(si) ? 0 : walkCost(dA, s); if(w<=MAXW){ ea[si]=t0 + w/WALK*60; jp[si]={w}; } egress[si] = onB.has(si) ? 0 : walkCost(dB, s); });
   let best=Infinity, bestStop=-1; const tmax = t0 + 3*3600;
   const reach = (si, t) => { if(egress[si] <= MAXW){ const ta = t + egress[si]/WALK*60; if(ta < best){ best=ta; bestStop=si; } } };
   for(let k=firstAt(c, t0); k<c.length; k+=5){ const dep=c[k]; if(dep > tmax || dep >= best) break; const ti=c[k+4], a=c[k+2], b=c[k+3], arr=c[k+1];
@@ -289,19 +290,21 @@ function scan(A, B, day, t0, dA, dB){
       for(const [to,dur] of D.foot[b]) if(arr+dur < ea[to]){ ea[to]=arr+dur; jp[to]={from:b, dur}; } } }
   if(bestStop < 0) return null;
   const legs=[]; let s=bestStop;
-  legs.push({type:"walk", d:egress[s], a:s, toEnd:true, t0:ea[s], t1:best});
+  legs.push({type:"walk", d:egress[s], a:s, toEnd:true, t0:ea[s], t1:best, here:onB.has(s)});
   while(jp[s] && jp[s].w === undefined){ const j=jp[s];
     if(j.from !== undefined){ legs.unshift({type:"xfer", a:j.from, b:s, dur:j.dur}); s=j.from; continue; }
     const a=c[j.kb+2]; legs.unshift({type:"ride", ti:j.ti, route:d.trips[j.ti], head:d.head[j.ti], a, b:s, dep:c[j.kb], arr:c[j.ka+1]}); s=a; }
   const rides = legs.filter(l => l.type==="ride"); if(!rides.length) return null;
-  const w0 = walkCost(dA, D.stops[s]);
-  legs.unshift({type:"walk", d:w0, b:s, fromStart:true});
-  const leave = rides[0].dep - w0/WALK*60 - 60;   // a minute to spare at the stop
+  const w0 = onA.has(s) ? 0 : walkCost(dA, D.stops[s]);
+  legs.unshift({type:"walk", d:w0, b:s, fromStart:true, here:onA.has(s)});
+  const leave = rides[0].dep - w0/WALK*60 - (onA.has(s) ? 0 : 60);   // a minute to spare at the stop
   legs[0].t0 = leave; legs[0].t1 = rides[0].dep;
   return {legs, rides, leave, arrive:best, key:rides.map(r => r.ti).join(",")}; }
 function planTrip(A, B, day, t0){
   const dA = walkFrom(A), dB = walkTo(B);
-  const sa=snapOf(A), sb=snapOf(B), walkM = Math.min(walkCost(dA, B), sa.e===sb.e ? sa.conn + sb.conn + Math.abs(sa.f-sb.f)*D.el[sa.e] : Infinity), walkMin = walkM / WALK;
+  const near = (st, T) => st.map(si => [si, walkCost(T, D.stops[si])]).sort((a,b) => a[1]-b[1])[0][0];
+  const wA = A.stops ? epStop(near(A.stops, dB)) : A, wB = B.stops ? epStop(near(B.stops, dA)) : B, dW = wA===A ? dA : walkFrom(wA);
+  const sa=snapOf(wA), sb=snapOf(wB), walkM = Math.min(walkCost(dW, wB), sa.e===sb.e ? sa.conn + sb.conn + Math.abs(sa.f-sb.f)*D.el[sa.e] : Infinity), walkMin = walkM / WALK;
   const opts = []; let t = t0;
   for(let n=0; n<8 && opts.length<4; n++){ const o = scan(A, B, day, t, dA, dB); if(!o) break;
     if(!opts.some(p => p.key===o.key)) opts.push(o); t = o.leave + 120; }
@@ -309,7 +312,7 @@ function planTrip(A, B, day, t0){
   for(let i=opts.length-1;i>=0;i--) if(opts.some((p,j) => j!==i && p.arrive <= opts[i].arrive && p.leave >= opts[i].leave && (p.arrive < opts[i].arrive || p.leave > opts[i].leave || j < i))) opts.splice(i,1);   // drop options another one beats
   let keep = opts.filter(o => o.arrive < t0 + walkMin*60 + 120);   // a bus has to beat walking
   if(keep.length > 3) keep = keep.slice(0,3);
-  const walk = isFinite(walkM) && walkMin <= 45 ? {walkOnly:true, legs:[{type:"walk", d:walkM, fromStart:true, toEnd:true, t0, t1:t0+walkMin*60}], leave:t0, arrive:t0+walkMin*60, rides:[]} : null;
+  const walk = isFinite(walkM) && walkMin <= 45 ? {walkOnly:true, wA, wB, dW, legs:[{type:"walk", d:walkM, fromStart:true, toEnd:true, t0, t1:t0+walkMin*60}], leave:t0, arrive:t0+walkMin*60, rides:[]} : null;
   if(walk && (walkMin <= 12 || !keep.length)) keep.unshift(walk); else if(walk) keep.push(walk);
   // geometry and live times
   for(const o of keep){ for(const l of o.legs) legGeom(l, o, A, B, dA, dB, day);
@@ -321,7 +324,8 @@ function planTrip(A, B, day, t0){
 function legGeom(l, o, A, B, dA, dB, day){
   const set = w => { l.pts = w.pts; l.sg = w.sg; l.st = {len:w.len, up:w.up, dn:w.dn, steepUp:w.steepUp, steepDn:w.steepDn}; };
   if(l.type==="walk"){
-    if(l.fromStart && l.toEnd) set(walkLine(dA, A, B));
+    if(l.here){ l.pts = []; l.sg = null; l.st = null; return; }
+    if(l.fromStart && l.toEnd) set(walkLine(o.dW || dA, o.wA || A, o.wB || B));
     else if(l.fromStart) set(walkLine(dA, A, D.stops[l.b]));
     else set(walkLine(dB, D.stops[l.a], B)); }
   else if(l.type==="xfer"){ const a=D.stops[l.a], b=D.stops[l.b]; set(walkLine(walkFrom(a, 3000), a, b)); }
@@ -392,7 +396,7 @@ function walkDots(ctx,X,Y,pts,sc,C,sel,on,sg){ if(!pts || pts.length<2) return;
   ctx.save(); ctx.lineCap="round"; ctx.lineJoin="round"; ctx.globalAlpha = on ? 1 : .45; ctx.setLineDash([0, gap]);
   ctx.beginPath(); lineP(ctx,X,Y,pts); ctx.strokeStyle=C.panel; ctx.lineWidth=d+3.5; ctx.stroke();
   // dots in runs of the same slope class, keeping the spacing continuous from run to run
-  const base = sel ? C.accent : C.ink; let i=0, run=0;
+  const base = C.ink; let i=0, run=0;
   while(i < pts.length-1){ const cls = sg ? slopeCls(sg[i]||0) : 0; let j=i;
     ctx.beginPath(); ctx.moveTo(X(pts[i][0]),Y(pts[i][1])); let L_=0;
     while(j < pts.length-1 && (sg ? slopeCls(sg[j]||0) : 0)===cls){ const x0=X(pts[j][0]), y0=Y(pts[j][1]), x1=X(pts[j+1][0]), y1=Y(pts[j+1][1]); ctx.lineTo(x1,y1); L_ += Math.hypot(x1-x0,y1-y0); j++; }
@@ -477,15 +481,21 @@ function drawStops(ctx,X,Y,z,size,C,F){
 }
 
 /* ---------- legend ---------- */
-const Legend = L.Control.extend({ options:{position:"bottomright"}, onAdd(){ this._d=L.DomUtil.create("div","legend"); L.DomEvent.disableClickPropagation(this._d); return this._d; },
-  set(html){ this._d.innerHTML = html + snowLegend(); this._d.style.display = this._d.innerHTML.trim() ? "" : "none"; } });
+// the legend is a small "Key" button on phones (tap to open) and open on bigger screens
+let legendOpen = !matchMedia("(max-width:760px)").matches;
+const Legend = L.Control.extend({ options:{position:"topright"}, onAdd(){ this._d=L.DomUtil.create("div","legend"); L.DomEvent.disableClickPropagation(this._d); L.DomEvent.disableScrollPropagation(this._d);
+    this._d.addEventListener("click", e => { e.stopPropagation(); if(e.target.closest(".lgk")){ legendOpen = !legendOpen; setTimeout(() => this._paint(), 0); } }); return this._d; },
+  set(html){ this._html = html + snowLegend(); this._paint(); },
+  _paint(){ const h=(this._html||"").trim(); this._d.style.display = h ? "" : "none"; if(!h) return;
+    this._d.classList.toggle("shut", !legendOpen);
+    this._d.innerHTML = `<button class="lgk" aria-expanded="${legendOpen}">${legendOpen ? "Hide key" : "Map key"}</button>` + (legendOpen ? `<div class="lgb">${h}</div>` : ""); } });
 function updateLegend(){ if(!legend) return;
   const o = S.tab==="plan" && S.opts && S.opts[S.opt];
   if(o && D.eup){ const has = [0,0,0]; for(const l of o.legs) if(l.sg) for(const g of l.sg) has[slopeCls(g)] = 1;
     if(has[1] || has[2]){ const row = (c, t) => `<div class="sl"><i style="background:${c}"></i>${t}</div>`;
-      legend.set(`<b>Walking slope</b>${row("var(--ink)", "Gentle, under 5%")}${has[1]? row(SLOPE_COL[1], "Moderate, 5–8%") : ""}${has[2]? row(SLOPE_COL[2], "Steep, 8% or more") : ""}`); return; } }
+      legend.set(`<b>Walking route</b>${row("var(--ink)", "Flat or gentle, under 5%")}${has[1]? row(SLOPE_COL[1], "Moderate, 5–8%") : ""}${has[2]? row(SLOPE_COL[2], "Steep, 8% or more") : ""}`); return; } }
   legend.set(""); }
-function redraw(){ updateLegend(); busFocus(); updateNextStop(); updateStepMarks(); updatePickHint(); if(base) base.draw(); }
+function redraw(){ placePins(); updateLegend(); busFocus(); updateNextStop(); updateStepMarks(); updatePickHint(); if(base) base.draw(); }
 
 /* ---------- pins ---------- */
 const FLAG_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21V4 M7 4.5h10l-2.2 3.6L17 11.7H7" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
@@ -570,9 +580,9 @@ function stations(){ if(_st) return _st; _st = new Map();
   return _st; }
 function stationEP(name){ const g = stations().get(name); if(!g) return null; const hub = Object.keys(HUBS).find(k => HUBS[k].re.test(name+" "));
   if(hub) return hubEP(hub);
-  return epPoint(g.ss.reduce((t,s)=>t+s.lat,0)/g.n, g.ss.reduce((t,s)=>t+s.lon,0)/g.n, g.label); }
+  const ep = epPoint(g.ss.reduce((t,s)=>t+s.lat,0)/g.n, g.ss.reduce((t,s)=>t+s.lon,0)/g.n, g.label); ep.stops = g.ss.map(s => s.i); return ep; }
 function hubEP(k){ const h=HUBS[k]; if(!h) return null; const ss=D.stops.filter(s => h.re.test(s.name)); if(!ss.length) return null;
-  const ep = epPoint(ss.reduce((t,s)=>t+s.lat,0)/ss.length, ss.reduce((t,s)=>t+s.lon,0)/ss.length, h.label); ep.hub=k; return ep; }
+  const ep = epPoint(ss.reduce((t,s)=>t+s.lat,0)/ss.length, ss.reduce((t,s)=>t+s.lon,0)/ss.length, h.label); ep.hub=k; ep.stops=ss.map(s => s.i); return ep; }
 function goHub(k){ const ep=hubEP(k); if(!ep) return; hideSugg(); S.pick=null; if(S.tab!=="plan") setTab("plan");
   if(S.from && S.from.hub===k) S.from=null; // already starting there: start from where you are instead
   setEnd("to", ep, {go:!!S.from});
@@ -628,19 +638,22 @@ function hillNote(l){ if(!l.st || !D.eup) return ""; const u=Math.round(l.st.up)
   if(su >= .05) parts.push(`<span class="hill up ${su>=.08? "steep" : ""}" title="Steepest uphill stretch">steepest ${pc(su)} up</span>`);
   if(sd >= .05) parts.push(`<span class="hill dn ${sd>=.08? "steep" : ""}" title="Steepest downhill stretch">steepest ${pc(sd)} down</span>`);
   return parts.length ? `<div class="hills">${parts.join("")}</div>` : ""; }
+const lastHere = o => { const l=o.legs[o.legs.length-1]; return l && l.here ? l.a : null; };
 function legsHTML(o, day){ const rows=[];
   const lg = i => `data-leg="${i}" role="button" tabindex="0" aria-pressed="${S.leg===i}" title="Show this part on the map"`;
   let i = -1;
   const walkRow = (t, label, sub) => `<div class="leg walk" ${lg(i)}><span class="t">${t}</span><span class="rail"><i style="--c:var(--ink)"></i></span><span class="d"><b>${label}</b><div>${sub}</div></span></div>`;
   for(const l of o.legs){ i++;
     if(l.type==="walk"){ const m=mins(l.d/WALK*60), km=((l.st ? l.st.len : l.d)/1000).toFixed(1), h=hillNote(l);
-      if(l.fromStart) rows.push(walkRow(fmtT(l.t0), esc(S.from.label), (l.toEnd? `Walk ${m} min (${km} km) to your destination` : `Walk ${m} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})`) + h));
+      if(l.here && l.fromStart) rows.push(walkRow(fmtT(l.t0), esc(S.from.label), `Start at ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})`));
+      else if(l.here) rows.push(walkRow(fmtT(l.t0), `Get off at ${esc(D.stops[l.a].name)}`, "You're there"));
+      else if(l.fromStart) rows.push(walkRow(fmtT(l.t0), esc(S.from.label), (l.toEnd? `Walk ${m} min (${km} km) to your destination` : `Walk ${m} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})`) + h));
       else rows.push(walkRow(fmtT(l.t0), `Get off at ${esc(D.stops[l.a].name)}`, `Walk ${m} min to your destination` + h)); }
     else if(l.type==="xfer"){ rows.push(walkRow("", "Transfer", `Walk ${mins(l.dur)} min to ${esc(D.stops[l.b].name)} (stop #${D.stops[l.b].code})` + hillNote(l))); }
     else { const R=RT(l.route), n=Math.max(1,(l.via||[]).length-1), lt = l.live ? `<br><span style="font-size:13px">${fmtT(l.live.t)}</span>` : "";
       rows.push(`<div class="leg" ${lg(i)} style="--c:${R[2]}"><span class="t">${fmtT(l.dep)}${lt}</span><span class="rail"><i></i></span><span class="d">${chip(l.route)} <b>${esc(headText(day,l.head) || R[1])}</b>${l.live? delayBadge(l.live) : ""}<div>From ${esc(D.stops[l.a].name)} (#${D.stops[l.a].code}) · ${n} stop${n>1?"s":""} · ${mins(l.arr-l.dep)} min</div>${l.stay ? `<div>At ${esc(D.stops[l.stay.si].name)} it continues as ${esc(headText(day,l.head2) || R[1])}${l.stay.wait>90 ? ` after about ${mins(l.stay.wait)} min` : ""}. Stay on, or board the next ${esc(R[0])} there.</div>` : ""}
         <details><summary>Stops on this ride</summary><ol>${(l.via||[]).map(([si,t]) => `<li>${fmtT(t)} · ${esc(D.stops[si].name)}</li>`).join("")}</ol></details></span></div>`); } }
-  i = "end"; rows.push(`<div class="leg walk" ${lg("end")}><span class="t">${fmtT(o.arrive)}</span><span class="rail"><i style="--c:var(--ink);border-radius:50% 50% 50% 0"></i></span><span class="d"><b>Arrive</b><div>${esc(S.to.label)}</div></span></div>`);
+  i = "end"; rows.push(`<div class="leg walk" ${lg("end")}><span class="t">${fmtT(o.arrive)}</span><span class="rail"><i style="--c:var(--ink);border-radius:50% 50% 50% 0"></i></span><span class="d"><b>Arrive</b><div>${esc(lastHere(o) != null ? D.stops[lastHere(o)].name : o.wB && o.wB!==S.to ? o.wB.label : S.to.label)}</div></span></div>`);
   return `<div class="legs">${rows.join("")}</div>`; }
 
 /* ---------- ROUTES ---------- */
@@ -765,10 +778,17 @@ let nextMk = null, nextTimer = null;
 // the two ends of the step picked in a trip's directions, each marked and labelled on the map
 let stepMks = [], stepKey = "";
 const platOf = si => { const m = /Platform (.+)$/.exec(D.stops[si].name); return m ? "Platform " + m[1] : ""; };
-function stepEnds(o, k){ const L_ = o.legs, A = {pt:[S.from.lat,S.from.lon], text:"Start", c:"#2EAD5E", k:"#fff", pin:true}, B = {pt:[S.to.lat,S.to.lon], text:"Destination", c:"#D9472B", k:"#fff", pin:true};
+// where a trip really starts and ends: a station start or destination means the platform it uses
+function tripEnds(o){ const f=o.legs[0], l=o.legs[o.legs.length-1], at = si => [D.stops[si].lat, D.stops[si].lon];
+  return { from: f.here ? at(f.b) : o.wA && o.wA!==S.from ? [o.wA.lat, o.wA.lon] : [S.from.lat, S.from.lon],
+           to: l.here ? at(l.a) : o.wB && o.wB!==S.to ? [o.wB.lat, o.wB.lon] : [S.to.lat, S.to.lon] }; }
+function placePins(){ const o = S.tab==="plan" && S.opts && S.opts[S.opt], e = o && tripEnds(o);
+  for(const k of ["from","to"]){ const ep=S[k]; if(!pins[k] || !ep) continue; pins[k].setLatLng(e && ep.stops ? e[k] : [ep.lat, ep.lon]); } }
+function stepEnds(o, k){ const L_ = o.legs, E = tripEnds(o), A = {pt:E.from, text:"Start", c:"#2EAD5E", k:"#fff", pin:true}, B = {pt:E.to, text:"Destination", c:"#D9472B", k:"#fff", pin:true};
   const stop = (si, verb, ri) => { const s=D.stops[si], R = ri!=null ? RT(ri) : null, pl=platOf(si);
     return {pt:[s.lat,s.lon], text: verb + (R ? " " + R[0] : "") + (pl ? " · " + pl : ""), c: R ? R[2] : "#1C2A2D", k: R ? routeInk(R) : "#fff"}; };
-  if(k==="end"){ const last=L_[L_.length-1]; return last.type==="walk" && last.a!=null ? [stop(last.a, "Get off", L_[L_.length-2]?.route), B] : [B]; }
+  if(k==="end"){ const last=L_[L_.length-1]; if(last.here) return [stop(last.a, "Arrive", L_[L_.length-2]?.route)]; return last.type==="walk" && last.a!=null ? [stop(last.a, "Get off", L_[L_.length-2]?.route), B] : [B]; }
+  if(L_[k].here) return L_[k].fromStart ? [stop(L_[k].b, "Start", L_[k+1]?.route)] : [stop(L_[k].a, "Arrive", L_[k-1]?.route)];
   const l = L_[k], next = L_[k+1], prev = L_[k-1];
   if(l.type==="ride") return [stop(l.a, "Board", l.route), stop(l.b, "Get off", l.route)];
   if(l.type==="xfer") return [stop(l.a, "Get off", prev && prev.route), stop(l.b, "Board", next && next.route)];
