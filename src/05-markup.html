@@ -3,7 +3,7 @@
 .app{grid-template-columns:minmax(350px,430px) 1fr}
 .panel{gap:14px}
 .panel>*{flex:none}
-.ptabs{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--rule);border-radius:10px;overflow:hidden;position:sticky;top:-18px;z-index:5;background:var(--panel)}
+.ptabs{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--rule);border-radius:10px;overflow:hidden;position:sticky;top:-18px;z-index:5;background:var(--panel)}
 .ptabs button{font:inherit;font-weight:600;font-size:16px;padding:10px 4px;border:0;background:var(--bg);color:var(--muted);cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
 .ptabs button+button{border-left:1px solid var(--rule)}
 .ptabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -276,6 +276,51 @@ html,body{overflow-x:clip;max-width:100%}
 .chk{font-size:17px}
 @media (max-width:420px){.ohead b{font-size:28px}.ohead span{font-size:16px;letter-spacing:-.02em}.leg{grid-template-columns:74px 18px 1fr}}
 
+/* ---- simpler layout (Oct 31) ---- */
+header h1{font-size:28px!important;line-height:1.05}
+header>p{display:none}
+header .brandbar{margin-bottom:6px}
+.preview{font-size:12.5px}
+@media (max-width:760px){ header h1{font-size:24px!important} .panel{gap:12px} }
+.when{grid-template-columns:auto;justify-content:start}
+.when.at{grid-template-columns:1.2fr 1fr 1fr;justify-content:stretch}
+.when select#whenMode{min-width:150px}
+#planOut{margin-top:4px!important}
+.hint{color:var(--muted);margin:0}
+/* Buses tab */
+#pBuses>.sbox{margin-bottom:12px}
+.gridkey{display:flex;gap:8px;align-items:center;margin:-2px 0 10px!important;font-size:15px!important}
+.nbk{font-family:var(--f-mono);font-size:12px;font-weight:500;min-width:15px;height:15px;border-radius:8px;background:var(--brand-green);color:#06230f;display:inline-grid;place-items:center;padding:0 3px;box-sizing:border-box}
+#nearSec{margin-top:4px}
+.slist.short li:nth-child(n+9){display:none}
+.more{font:inherit;font-size:16px;font-weight:600;color:var(--accent-text);background:none;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;margin-top:8px;width:100%;cursor:pointer}
+.more:hover{background:var(--chip)}
+/* calmer countdowns: ink instead of red */
+:root{--cd:var(--ink)!important}
+.cd.due{color:var(--accent-ink);background:var(--accent)}
+.dep .times .arr{color:var(--ink)}
+.dep .times{white-space:nowrap}
+.dep .late,.dep .ontime{display:inline;background:none;padding:0;color:var(--warn);font-size:14px;font-weight:600;margin-left:6px;font-family:var(--f-body)}
+.dep .ontime{color:var(--muted);font-weight:500}
+/* live status: one line */
+.livesum summary{display:flex;gap:10px;align-items:center;cursor:pointer;font-size:15px;color:var(--muted);list-style:none}
+.livesum summary::-webkit-details-marker{display:none}
+.livesum summary::after{content:"Details";margin-left:auto;font-size:14px;color:var(--accent-text)}
+.livesum[open] summary::after{content:"Hide"}
+.livesum .livelist{margin-top:8px}
+#secLive{border-top:1px solid var(--rule);padding-top:10px}
+/* map: one Layers button */
+.layers{left:56px;right:auto;overflow:visible;display:block}
+.lyrbtn{display:flex;gap:6px;align-items:center;font:inherit;font-size:15px;font-weight:600;padding:6px 12px 6px 9px;border-radius:99px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.15)}
+.lyrbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+.lyrbtn[aria-expanded="true"]{background:var(--ink);color:var(--panel)}
+.lyrmenu{margin-top:6px;background:var(--panel);border:1px solid var(--rule);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.2);padding:8px 12px 10px;width:250px;max-height:calc(46dvh - 70px);overflow-y:auto}
+@media (min-width:761px){.lyrmenu{max-height:70vh}}
+.lyrmenu h4{margin:8px 0 2px;font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.lyr{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:16px;cursor:pointer}
+.lyr input{accent-color:var(--accent);width:18px;height:18px;margin:0;flex:none}
+.lyr .ico{width:18px;height:18px;flex:none}
+.pickhint{top:54px}
 </style>
 
 <div class="splash" id="splash" role="status" aria-live="polite">
@@ -296,13 +341,12 @@ html,body{overflow-x:clip;max-width:100%}
       <div class="brandbar" aria-hidden="true"><i></i><i></i></div>
       <h1>Guelph <span>Transit Planner</span></h1>
       <p>Plan a trip, look up any route or stop, and watch the buses move.</p>
-      <div class="preview" id="previewTag" hidden>Preview · replaying saved bus data from Fri Oct 23, 11:47am</div>
+      <div class="preview" id="previewTag" hidden>Preview · saved bus data, Fri Oct 23 11:47am</div>
     </header>
 
     <div class="ptabs" role="tablist" aria-label="Sections">
       <button role="tab" id="tabPlan" aria-selected="true" aria-controls="pPlan"><svg viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/></svg>Plan</button>
-      <button role="tab" id="tabRoutes" aria-selected="false" aria-controls="pRoutes"><svg viewBox="0 0 24 24"><path d="M6.5 3h11a2 2 0 0 1 2 2v11.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V5a2 2 0 0 1 2-2z M4.5 11h15 M7.5 21v-3 M16.5 21v-3"/></svg>Routes</button>
-      <button role="tab" id="tabStops" aria-selected="false" aria-controls="pStops"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>Stops</button>
+      <button role="tab" id="tabBuses" aria-selected="false" aria-controls="pBuses"><svg viewBox="0 0 24 24"><path d="M6.5 3h11a2 2 0 0 1 2 2v11.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V5a2 2 0 0 1 2-2z M4.5 11h15 M7.5 21v-3 M16.5 21v-3"/></svg>Buses</button>
     </div>
 
       <div class="hubs" id="hubs" role="group" aria-label="One-tap trips">
@@ -322,42 +366,31 @@ html,body{overflow-x:clip;max-width:100%}
       </div>
       <div class="when">
         <select id="whenMode" aria-label="When"><option value="now">Leave now</option><option value="at">Leave at…</option></select>
-        <select id="whenDay" aria-label="Day" disabled><option value="weekday">Weekday</option><option value="saturday">Saturday</option><option value="sunday">Sunday</option></select>
-        <select id="whenTime" aria-label="Time" disabled></select>
+        <select id="whenDay" aria-label="Day" hidden><option value="weekday">Weekday</option><option value="saturday">Saturday</option><option value="sunday">Sunday</option></select>
+        <select id="whenTime" aria-label="Time" hidden></select>
       </div>
-      <button class="gobtn" id="goBtn">Plan trip</button>
-      <label class="chk"><input type="checkbox" id="walkChk" checked> Show the 10-minute walk area around the start</label>
       <div id="planOut" style="margin-top:14px"></div>
     </section>
 
-    <!-- ROUTES -->
-    <section id="pRoutes" role="tabpanel" aria-labelledby="tabRoutes" hidden>
+    <!-- BUSES: routes and stops in one place -->
+    <section id="pBuses" role="tabpanel" aria-labelledby="tabBuses" hidden>
+      <div class="sbox search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="stopQ" type="search" autocomplete="off" placeholder="Route, stop number or stop name" aria-label="Find a route or stop">
+      </div>
       <div id="routeOut"></div>
+      <div id="stopOut"></div>
       <div class="sec" id="routeGridSec">
         <h3><span id="routeHead">All routes</span> <em id="routeDay"></em></h3>
-        <div class="hubs rhubs" role="group" aria-label="Routes going to">
-          <button class="hub ug" data-rhub="uofg" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.6V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.4"/><path d="M22 9.5V15"/></svg></i><span><b>To U of G</b><small class="rn">All routes</small></span></button>
-          <button class="hub dt" data-rhub="downtown" aria-pressed="false"><i class="hi" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l6-3v16"/><path d="M11 21V10h8v11"/><path d="M14 13.5h2 M14 17h2 M8 10v.01 M8 13.5v.01 M8 17v.01"/></svg></i><span><b>To Downtown</b><small class="rn">All routes</small></span></button>
-        </div>
+        <p class="hint gridkey"><span class="nbk">2</span> buses on the road now</p>
         <div class="rgrid" id="rgrid"></div>
         <h3 style="margin-top:14px" id="otherHead">Other service</h3>
         <div class="rgrid" id="rgrid2"></div>
-        <p class="hint">Green dots count the buses on the road right now.</p>
       </div>
-    </section>
-
-    <!-- STOPS -->
-    <section id="pStops" role="tabpanel" aria-labelledby="tabStops" hidden>
-      <div class="sbox search">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="stopQ" type="search" autocomplete="off" placeholder="Stop number or name, e.g. 6012 or Gordon" aria-label="Find a stop">
-      </div>
-      <div class="hint">Or tap any stop on the map.</div>
-      <div id="stopOut" style="margin-top:12px"></div>
+      <div class="sec" id="nearSec"></div>
     </section>
 
     <section class="sec" id="secLive">
-      <h3>Live data <em id="liveClock"></em></h3>
       <div id="liveBody"><p class="empty">Live buses, arrival predictions and service alerts run on the website version of this app.</p></div>
     </section>
 

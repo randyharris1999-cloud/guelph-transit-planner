@@ -48,11 +48,13 @@ function setStatus(key, state, label, detail){ LV.st[key] = {state, label, detai
 function renderLive(){
   if(!LIVE) return;
   const order = [["buses","Live buses"],["preds","Arrival predictions"],["alerts","Service alerts"],["city","City amenities & AEDs"],["closures","Road closures"],["snow","Sidewalk snow clearing"]];
-  $("liveBody").innerHTML = `<div class="livelist">${order.map(([k,lbl]) => { const s=LV.st[k] || {state:"", detail:"Not loaded"};
-      return `<div class="lrow"><span class="ldot ${s.state}"></span><span>${lbl}<small>${esc(s.detail||"")}</small></span><span class="st">${s.at ? new Date(s.at).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : ""}</span></div>`; }).join("")}</div>
-    <div class="toggles">${[["buses","Show live buses"],["closures","Show road closures"],["snow","Show sidewalk snow clearing"]].map(([k,l]) => `<label><input type="checkbox" id="tg_${k}" ${LV.show[k]?"checked":""}> ${l}</label>`).join("")}</div>
+  // one line for riders; the full feed list is tucked away for checking problems
+  const bad = order.filter(([k]) => LV.st[k] && LV.st[k].state==="bad"), b = LV.st.buses, ok = b && b.state==="ok";
+  const at = b && b.at ? new Date(b.at).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : "";
+  $("liveBody").innerHTML = `<details class="livesum"><summary><span class="ldot ${ok? "ok" : b? b.state : ""}"></span><span>${ok ? `Live · ${esc(b.detail.replace(" on the road",""))}${at? " · updated "+at : ""}` : b && b.state==="bad" ? "Live buses unavailable right now" : "Connecting to live buses…"}${bad.length && ok ? ` · ${bad.length} feed${bad.length>1?"s":""} down` : ""}</span></summary>
+    <div class="livelist">${order.map(([k,lbl]) => { const s=LV.st[k] || {state:"", detail:"Not loaded"};
+      return `<div class="lrow"><span class="ldot ${s.state}"></span><span>${lbl}<small>${esc(s.detail||"")}</small></span><span class="st">${s.at ? new Date(s.at).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : ""}</span></div>`; }).join("")}</div></details>
     <div id="snowNear" class="insight" ${LV.snow && S.report ? "" : "hidden"}></div>`;
-  for(const k of ["buses","closures","snow"]) $("tg_"+k).onchange = e => { LV.show[k]=e.target.checked; if(k==="snow" && LV.show.snow && !LV.snow) loadSnow(); drawBuses(); updateLegend(); base.draw(); };
   snowNear();
 }
 const SNAP = {vehicles:"vehiclepositions", tripupdates:"tripupdates", alerts:"alerts"};
