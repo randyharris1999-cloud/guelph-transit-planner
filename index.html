@@ -272,6 +272,12 @@ footer{font-size:14px;color:var(--muted);margin-top:auto}
 .dirs button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
 .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
 .facts div{background:var(--chip);border-radius:8px;padding:8px}
+.facts .roadbus{all:unset;box-sizing:border-box;background:var(--chip);border-radius:8px;padding:8px;cursor:pointer;border:1.5px solid var(--accent);display:block}
+.facts .roadbus:hover{background:color-mix(in srgb,var(--accent) 12%,var(--chip))}
+.facts .roadbus:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.facts .roadbus .go{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:14px;font-weight:700;color:var(--accent-text)}
+.facts .roadbus .go svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dep .lbl .findbus{float:none;margin:6px 0 0;font-size:16px!important}
 .facts small{display:block;font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .facts b{font-family:var(--f-display);font-size:19px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
 .slist{list-style:none;margin:6px 0 0;padding:0;position:relative}
@@ -1129,7 +1135,9 @@ function drawStops(ctx,X,Y,z,size,C,F){
       else { ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fillStyle=C.panel; ctx.fill(); ctx.lineWidth=1.4; ctx.strokeStyle=C.ink; ctx.stroke(); }
       ctx.globalAlpha=1; } }
   if(on && z>=12) for(const si of on){ const s=D.stops[si], x=X(s.mx), y=Y(s.my); if(inView(x,y)) ring(ctx, x, y, z>=15? 5 : 3.5, col, C); }
-  if(S.tab==="stops" && S.stop!=null && !S.bus){ const s=D.stops[S.stop], x=X(s.mx), y=Y(s.my);
+  // the selected stop, or the stop a "find bus" tap is showing the bus heading to
+  const hs = S.bus ? (S.busStop ?? null) : S.tab==="stops" ? S.stop : null;
+  if(hs!=null && D.stops[hs]){ const s=D.stops[hs], x=X(s.mx), y=Y(s.my);
     ctx.beginPath(); ctx.arc(x,y,14,0,6.2832); ctx.fillStyle="rgba(0,166,229,.18)"; ctx.fill(); ring(ctx, x, y, 8, C.ink, C); }
 }
 
@@ -1324,7 +1332,7 @@ function renderRoutes(){ if(S.tab!=="routes") return; const day=liveDay(), I=idx
   const al = live ? alertsFor(new Set([ri]), new Set()) : [];
   el.innerHTML = `<div class="rhead">${chip(ri)}<div><h2>${esc(R[1])}</h2><div class="rlong">Route ${esc(R[0])} · ${trips.length} trips today this way</div></div><button class="ibtn" id="routeX" aria-label="Back to all routes"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     ${heads.length>1 ? `<div class="dirs" role="group" aria-label="Direction">${heads.map(([hh]) => `<button data-dir="${hh}" aria-pressed="${hh===h}">${esc(headText(day,hh) || R[1])}</button>`).join("")}</div>` : ""}
-    <div class="facts"><div><small>How often</small><b>${running && every ? "Every "+every+" min" : running ? "Hourly" : "Not now"}</b></div><div><small>First · last</small><b>${starts.length? fmtT(starts[0])+" – "+fmtT(starts[starts.length-1]) : "–"}</b></div><div><small>On the road</small><b>${nb} bus${nb===1?"":"es"}</b></div></div>
+    <div class="facts"><div><small>How often</small><b>${running && every ? "Every "+every+" min" : running ? "Hourly" : "Not now"}</b></div><div><small>First · last</small><b>${starts.length? fmtT(starts[0])+" – "+fmtT(starts[starts.length-1]) : "–"}</b></div>${nb ? `<button class="roadbus" data-roadbus aria-label="Show ${nb===1? "this route's bus" : "a bus on this route"} on the map"><small>On the road</small><b>${nb} bus${nb===1?"":"es"}</b><span class="go">${FINDBUS_ICO}${nb>1 && S.roadK!=null ? `Bus ${S.roadK%nb+1} of ${nb} · next` : "Show on map"}</span></button>` : `<div><small>On the road</small><b>0 buses</b></div>`}</div>
     ${alertHTML(al)}
     <div class="sec" style="margin-top:14px"><h3>Stops <em>next bus${live? '<span class="livetag">live</span>':""}</em></h3>
     <ol class="slist" style="--c:${R[2]}">${stopsSeq.map(si => { const s=D.stops[si], n=next.get(si);
@@ -1345,27 +1353,53 @@ function renderStop(){ if(S.tab!=="stops") return; const el=$("stopOut");
     <div class="rchips">${routes.map(ri => `<button data-route="${ri}" title="Route ${esc(RT(ri)[0])} ${esc(RT(ri)[1])}">${chip(ri)}</button>`).join("")}</div>
     <div class="acts"><button data-tripfrom="${si}">Trip from here</button><button data-tripto="${si}">Trip to here</button></div></div>
     ${alertHTML(al)}
-    <div class="sec" style="margin-top:14px"><h3>Next buses <em>${liveOK(day)? 'next 90 min<span class="livetag">live</span>' : "next 90 min, scheduled"}</em></h3><div class="deps">${list.length ? depRows(list, {day, arrives:true, max:12, sub:() => ""}) : `<p class="empty">No departures in the next 90 minutes.</p>`}</div></div>`; }
+    <div class="sec" style="margin-top:14px"><h3>Next buses <em>${liveOK(day)? 'next 90 min<span class="livetag">live</span>' : "next 90 min, scheduled"}</em></h3><div class="deps">${list.length ? depRows(list, {day, arrives:true, max:12, sub:g => liveOK(day) && g.items[0].t - nowSec() < 3600 ? `<span class="findbus" data-findtrip="${g.items[0].ti}" data-findstop="${si}" role="button" tabindex="0" aria-label="Find this bus on the map">${FINDBUS}</span>` : ""}) : `<p class="empty">No departures in the next 90 minutes.</p>`}</div></div>`; }
 function stopRowHTML(si, dist){ const s=D.stops[si], rs=[...idx(liveDay()).sRoutes[si]].sort((a,b)=>(parseInt(RT(a)[0])||999)-(parseInt(RT(b)[0])||999));
   return `<button data-stop="${si}"><span>${esc(s.name)}<br><small>#${esc(s.code)}${dist? " · "+dist : ""}</small></span><span class="rs">${rs.slice(0,6).map(ri=>chip(ri)).join("")}</span></button>`; }
 function openStop(si, {pan=true}={}){ S.bus=null; $("busOut").hidden=true; S.stop=si; $("stopQ").value=""; setTab("stops");
   if(pan){ const s=D.stops[si]; map.setView([s.lat,s.lon], Math.max(map.getZoom(), 16)); } }
-function openRoute(ri, head=null){ S.bus=null; $("busOut").hidden=true; S.route=ri; S.rdir=head; setTab("routes");
+function openRoute(ri, head=null){ S.bus=null; $("busOut").hidden=true; S.route=ri; S.rdir=head; S.roadK=null; setTab("routes");
   const b=L.latLngBounds([]); for(const sh of D.shapes) if(sh.route===ri) sh.xs.forEach((x,j) => b.extend(unmerc(x, sh.ys[j]))); if(b.isValid()) map.fitBounds(b.pad(.05)); }
 
 /* ---------- BUS ---------- */
 /* ---------- "Find bus": show the live bus for a trip option's first ride ---------- */
-const FINDBUS = `<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="2.5"/><path d="M5 10h14 M8 20v-3 M16 20v-3"/></svg>Find bus`;
-function findBus(k){ const o=S.opts && S.opts[k], r=o && o.rides[0]; if(!r) return null;
-  for(const st of VS.values()) if(st.info && st.info.day===S.planDay && st.info.ti===r.ti) return st.id;
-  return null; }
-function goFindBus(el){ const id=findBus(+el.dataset.findbus), mk = id!=null && LV.markers.get(id);
-  if(!mk){ el.textContent="Not on the road yet"; el.classList.add("none"); clearTimeout(el._t); el._t=setTimeout(() => { el.innerHTML=FINDBUS; el.classList.remove("none"); }, 3000); return; }
-  // the bus card opens at the top of the panel; keep this trip where it was on screen
-  const k=el.dataset.findbus, y0=el.getBoundingClientRect().top;
-  selectBus(id); map.setView(mk.getLatLng(), Math.max(map.getZoom(), 16));
-  const el2=document.querySelector(`[data-findbus="${k}"]`); if(el2){ const dy=el2.getBoundingClientRect().top-y0; if(Math.abs(dy)>1){ const sc=$("panel"); if(sc.scrollHeight>sc.clientHeight+1 && getComputedStyle(sc).overflowY!=="visible") sc.scrollTop+=dy; else window.scrollBy(0,dy); } } }
-function selectBus(id){ S.bus=id; renderBus(); redraw(); }
+const FINDBUS_ICO = `<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="2.5"/><path d="M5 10h14 M8 20v-3 M16 20v-3"/></svg>`, FINDBUS = FINDBUS_ICO + "Find bus";
+const busOnTrip = (day, ti) => { for(const st of VS.values()) if(st.info && st.info.day===day && st.info.ti===ti) return st.id; return null; };
+function findBus(k){ const o=S.opts && S.opts[k], r=o && o.rides[0]; return r ? busOnTrip(S.planDay, r.ti) : null; }
+// zoom the map so the bus and the stop are both in view
+function fitBusStop(mk, si){ const ll=mk.getLatLng(); if(si==null || !D.stops[si]){ map.setView(ll, Math.max(map.getZoom(), 16)); return; }
+  const s=D.stops[si], b=L.latLngBounds([ll, [s.lat, s.lon]]), phone = innerWidth <= 760;
+  if(b.getNorthEast().equals(b.getSouthWest())) map.setView(ll, 17);
+  else map.fitBounds(b, {paddingTopLeft:[50, 80], paddingBottomRight:[50, phone? 60 : 70], maxZoom:17}); }
+// the bus card opens at the top of the panel; keep the tapped button where it was on screen
+function keepPlace(el, sel, fn){ const y0=el.getBoundingClientRect().top; fn();
+  const el2=document.querySelector(sel); if(el2){ const dy=el2.getBoundingClientRect().top-y0; if(Math.abs(dy)>1){ const sc=$("panel"); if(sc.scrollHeight>sc.clientHeight+1 && getComputedStyle(sc).overflowY!=="visible") sc.scrollTop+=dy; else window.scrollBy(0,dy); } } }
+function notYet(el){ el.textContent="Not on the road yet"; el.classList.add("none"); clearTimeout(el._t); el._t=setTimeout(() => { el.innerHTML=FINDBUS; el.classList.remove("none"); }, 3000); }
+// Stops tab: the bus on its way to this stop
+function goStopBus(el){ const ti=+el.dataset.findtrip, si=+el.dataset.findstop, id=busOnTrip(liveDay(), ti), mk = id!=null && LV.markers.get(id);
+  if(!mk) return notYet(el);
+  keepPlace(el, `[data-findtrip="${ti}"][data-findstop="${si}"]`, () => { selectBus(id, si); fitBusStop(mk, si); }); }
+// Routes tab: "On the road" shows a bus and the stop it's heading to; with several buses, each tap moves to the next one
+function roadBuses(){ const day=liveDay(), d=D.days[day], ri=S.route, h=S.rdir, seqs=tripSeq(day), now=nowSec(), out=[];
+  for(const st of VS.values()){ if(!st.info || st.info.ti==null || D.transit.routes.indexOf(st.info.R)!==ri || d.head[st.info.ti]!==h) continue;
+    const q=seqs.get(st.info.ti)||[], dl=st.info.delay||0; let k=q.findIndex(([si,t]) => t+dl >= now);
+    // the timetable guess can lag a late bus, so check it against where the bus actually is: nearest stop in a window around the guess, then the one after it
+    const mk=LV.markers.get(st.id), p = mk ? mk.getLatLng() : st.lat!=null ? {lat:st.lat, lng:st.lon} : null;
+    if(k>=0 && p){ const dm = si => Math.hypot((D.stops[si].lon-p.lng)*KX, (D.stops[si].lat-p.lat)*KY); let bj=k, bd=Infinity;
+      for(let j=Math.max(0,k-4); j<Math.min(q.length,k+5); j++){ const dd=dm(q[j][0]); if(dd<bd){ bd=dd; bj=j; } }
+      // which side of that stop is the bus on? the stretch (stop before → it, or it → stop after) the bus sits on best
+      const sd = (a,b) => Math.hypot((D.stops[a].lon-D.stops[b].lon)*KX, (D.stops[a].lat-D.stops[b].lat)*KY), off = (a,b) => dm(a)+dm(b)-sd(a,b);
+      k = bd < 15 || bj+1 >= q.length ? bj : bj===0 ? (off(q[0][0], q[1][0]) < bd*.5 ? 1 : 0) : off(q[bj][0], q[bj+1][0]) < off(q[bj-1][0], q[bj][0]) ? bj+1 : bj; }
+    out.push({id:st.id, si: k>=0? q[k][0] : null, t: k>=0? q[k][1]+dl : Infinity}); }
+  return out.sort((a,b) => a.t-b.t || String(a.id).localeCompare(String(b.id))); }
+function goRoadBus(el){ const bs=roadBuses().filter(b => LV.markers.get(b.id)); if(!bs.length) return;
+  const cur = bs.findIndex(b => b.id===S.bus), k = cur<0 ? 0 : (cur+1) % bs.length, b=bs[k];
+  S.roadK = bs.length>1 ? k : null;
+  keepPlace(el, "[data-roadbus]", () => { selectBus(b.id, b.si); renderRoutes(); fitBusStop(LV.markers.get(b.id), b.si); }); }
+function goFindBus(el){ if(el.dataset.findtrip!=null) return goStopBus(el); const id=findBus(+el.dataset.findbus), mk = id!=null && LV.markers.get(id);
+  if(!mk) return notYet(el);
+  const k=el.dataset.findbus; keepPlace(el, `[data-findbus="${k}"]`, () => { selectBus(id); map.setView(mk.getLatLng(), Math.max(map.getZoom(), 16)); }); }
+function selectBus(id, si=null){ S.bus=id; S.busStop=si; renderBus(); redraw(); }
 function renderBus(){ const el=$("busOut"); const st = S.bus && VS.get(S.bus); if(!st || !st.info){ el.hidden=true; S.bus=null; return; }
   const {R, head, delay, day, ti} = st.info, ri=D.transit.routes.indexOf(R), now=nowSec(), q = ti!=null ? (tripSeq(day).get(ti)||[]) : [], dl=delay||0;
   const up=[]; for(const [si,t] of q){ if(t+dl >= now-20 && (!up.length || up[up.length-1][0]!==si)) up.push([si,t+dl]); if(up.length>=6) break; }
@@ -1458,16 +1492,17 @@ async function boot(){
   $("tabPlan").onclick = () => setTab("plan"); $("tabRoutes").onclick = () => setTab("routes"); $("tabStops").onclick = () => setTab("stops");
   $("stopQ").addEventListener("input", () => { S.stop=null; renderStop(); redraw(); });
   // one delegated handler for everything clickable in the panel
-  $("panel").addEventListener("keydown", e => { const t=e.target.closest("[data-findbus],[data-leg]"); if(t && (e.key==="Enter" || e.key===" ")){ e.preventDefault(); e.stopPropagation(); t.dataset.findbus!=null ? goFindBus(t) : t.click(); } });
-  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-findbus],[data-leg],[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
-    if(t.dataset.findbus!=null){ e.preventDefault(); goFindBus(t); return; }
+  $("panel").addEventListener("keydown", e => { const t=e.target.closest("[data-findbus],[data-findtrip],[data-leg]"); if(t && (e.key==="Enter" || e.key===" ")){ e.preventDefault(); e.stopPropagation(); t.dataset.findbus!=null || t.dataset.findtrip!=null ? goFindBus(t) : t.click(); } });
+  $("panel").addEventListener("click", e => { const t=e.target.closest("[data-findbus],[data-findtrip],[data-roadbus],[data-leg],[data-opt],[data-route],[data-stop],[data-dir],[data-tripfrom],[data-tripto],#routeX,#stopX,#busX,#busFollow"); if(!t) return;
+    if(t.dataset.findbus!=null || t.dataset.findtrip!=null){ e.preventDefault(); goFindBus(t); return; }
     if(t.dataset.opt!=null){ const k=+t.dataset.opt; S.opt=k; S.leg=null; renderPlan(); fitTrip(); redraw(); return; }
     if(t.dataset.leg!=null){ if(e.target.closest("details")) return; showLeg(t.dataset.leg==="end" ? "end" : +t.dataset.leg); return; }
     if(t.id==="routeX"){ S.route=null; renderRoutes(); redraw(); syncURL(); return; }
     if(t.id==="stopX"){ S.stop=null; renderStop(); redraw(); syncURL(); return; }
     if(t.id==="busX"){ S.bus=null; $("busOut").hidden=true; redraw(); return; }
     if(t.id==="busFollow"){ const mk=LV.markers.get(S.bus); if(mk) map.setView(mk.getLatLng(), Math.max(map.getZoom(), 16)); return; }
-    if(t.dataset.dir!=null){ S.rdir=+t.dataset.dir; renderRoutes(); redraw(); return; }
+    if(t.dataset.dir!=null){ S.rdir=+t.dataset.dir; S.roadK=null; renderRoutes(); redraw(); return; }
+    if(t.dataset.roadbus!=null){ goRoadBus(t); return; }
     if(t.dataset.tripfrom!=null){ setTab("plan"); setEnd("from", epStop(+t.dataset.tripfrom)); if(!S.to) $("toQ").focus(); return; }
     if(t.dataset.tripto!=null){ setTab("plan"); setEnd("to", epStop(+t.dataset.tripto)); if(!S.from) $("fromQ").focus(); return; }
     if(t.dataset.route!=null){ openRoute(+t.dataset.route, t.dataset.head ? +t.dataset.head : null); return; }
