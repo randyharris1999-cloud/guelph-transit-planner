@@ -48,7 +48,6 @@ function sprite(g, color, px, square=false){ const key=g+color+px+square; let c=
 const glyphFor = (cat, it) => cat==="community" && it && it.extra==="Library" ? "library" : cat;
 const OSM_CATS = ["grocery","pharmacy","health","food","playground"];
 // travel-time colours by absolute minutes, the same in every view
-const TBANDS = [[0,5,"#00729E"],[5,10,"#00A6E5"],[10,15,"#85B24A"],[15,20,"#C3BE45"],[20,30,"#E9A94E"],[30,45,"#E5794A"],[45,60,"#C9504A"]];  // City blue -> City green -> warm
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmtT = s => { s = Math.round(s/60)*60; let h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); const ap = h % 24 >= 12 ? "pm" : "am"; h = h % 12 || 12; return h + ":" + String(m).padStart(2, "0") + ap; };

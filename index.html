@@ -665,7 +665,6 @@ function sprite(g, color, px, square=false){ const key=g+color+px+square; let c=
 const glyphFor = (cat, it) => cat==="community" && it && it.extra==="Library" ? "library" : cat;
 const OSM_CATS = ["grocery","pharmacy","health","food","playground"];
 // travel-time colours by absolute minutes, the same in every view
-const TBANDS = [[0,5,"#00729E"],[5,10,"#00A6E5"],[10,15,"#85B24A"],[15,20,"#C3BE45"],[20,30,"#E9A94E"],[30,45,"#E5794A"],[45,60,"#C9504A"]];  // City blue -> City green -> warm
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmtT = s => { s = Math.round(s/60)*60; let h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); const ap = h % 24 >= 12 ? "pm" : "am"; h = h % 12 || 12; return h + ":" + String(m).padStart(2, "0") + ap; };
@@ -678,7 +677,6 @@ class Heap{ constructor(){this.k=[];this.v=[];}
   pop(){const k=this.k,v=this.v,top=v[0],tk=k[0];const lk=k.pop(),lv=v.pop();const n=k.length;if(n){let i=0;while(true){let c=2*i+1;if(c>=n)break;if(c+1<n&&k[c+1]<k[c])c++;if(k[c]>=lk)break;k[i]=k[c];v[i]=v[c];i=c;}k[i]=lk;v[i]=lv;}this.lastKey=tk;return top;}
   get size(){return this.k.length;} }
 
-function bandsFor(lim){ return TBANDS.filter(b => b[0] < lim).map(([lo,hi,c]) => [lo, Math.min(hi,lim), c]); }
 function snowLegend(){ if(typeof LV==="undefined" || !LV.show.snow || !LV.snow || S.mode==="census") return ""; return `<b style="margin-top:8px">Sidewalk last plowed</b><div class="sw">${SNOW.map(([h,c,l]) => `<i style="background:${c}"></i><span>${l}</span>`).join("")}</div>`; }
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function unmerc(x,y){ const lon=x*360-180; const n=Math.PI-2*Math.PI*y; return [180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n))), lon]; }
@@ -803,10 +801,10 @@ function drawLabels(ctx,X,Y,z,size,C){
 }
 
 /* ======================= Guelph Transit Planner ======================= */
-const WALK_AREA = 10;                  // minutes, the walk area around the start
+const WALK_AREA = 10;                  // minutes: "Buses within a 10-minute walk" of the start
 const MAXW = 15 * WALK;                // longest walk to or from a bus, metres
 const cityWide = () => false;          // (labels module asks)
-const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, opt:0, route:null, rhub:null, rdir:null, stop:null, bus:null, when:"now", day:"weekday", t:8*3600, showWalk:false };
+const S = { mode:"map", tab:"plan", from:null, to:null, walk:null, opts:null, opt:0, route:null, rhub:null, rdir:null, stop:null, bus:null, when:"now", day:"weekday", t:8*3600 };
 let D = {}, map, base, legend, pins = {}, meMarker = null, meCircle = null;
 
 /* ---------- data ---------- */
@@ -1158,16 +1156,9 @@ function line(ctx,X,Y,xs,ys){ ctx.moveTo(X(xs[0]),Y(ys[0])); for(let j=1;j<xs.le
 function lineP(ctx,X,Y,pts){ if(!pts.length) return; ctx.moveTo(X(pts[0][0]),Y(pts[0][1])); for(let j=1;j<pts.length;j++) ctx.lineTo(X(pts[j][0]),Y(pts[j][1])); }
 function cased(ctx, w, col, C, alpha=1){ ctx.strokeStyle=C.panel; ctx.lineWidth=w+3; ctx.globalAlpha=alpha; ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.stroke(); ctx.globalAlpha=1; }
 function routeGis(ri, head, day){ const d=D.days[day], s=new Set(); d.trips.forEach((r,ti) => { if(r===ri && (head==null || d.head[ti]===head) && d.shape && d.shape[ti]!=null) s.add(d.shape[ti]); }); return [...s]; }
-function showWalkArea(){ return S.tab==="plan" && S.showWalk && S.walk && !(S.opts && S.opts[S.opt]) && !S.bus; }
 function drawAll(ctx,X,Y,z,size){
   const C = drawBase(ctx,X,Y,z,size), sc = Math.pow(2, z-15), dark = matchMedia("(prefers-color-scheme: dark)").matches;
   const F = focus(), day = liveDay();
-  // 10-minute walk area: same banding as 15-Minute Guelph
-  if(showWalkArea()){ ctx.fillStyle=C.dim; ctx.fillRect(0,0,size.x,size.y);
-    const bands = bandsFor(WALK_AREA), w = Math.max(2.5, 5*sc), dist=S.walk.dist;
-    for(let bi=bands.length-1; bi>=0; bi--){ const [lo,hi,col]=bands[bi]; ctx.beginPath(); let any=false;
-      for(let e=0;e<D.E;e++){ const ta=Math.min(dist[D.ea[e]],dist[D.eb[e]])/WALK; if(ta>=lo && ta<hi && ta<=WALK_AREA){ strokeEdge(ctx,X,Y,e); any=true; } }
-      if(any){ ctx.strokeStyle=col; ctx.lineWidth=Math.min(14,w); ctx.lineCap="round"; ctx.stroke(); } } }
   // every route, faded
   ctx.lineCap="round"; ctx.lineJoin="round";
   for(const sh of D.shapes){ if(!regular(sh.route) || (F && F.routes.has(sh.route))) continue; ctx.beginPath(); line(ctx,X,Y,sh.xs,sh.ys);
@@ -1251,12 +1242,10 @@ function renderLayerChips(){ const lv = (LIVE || PREVIEW) ? LV.show : null;
   $("layers").innerHTML = `<button class="lyrbtn" id="lyrBtn" aria-expanded="false" aria-controls="lyrMenu">${LAYERS_ICO}<span>Layers</span></button>
   <div class="lyrmenu" id="lyrMenu" hidden>
     ${lv ? `<h4>Buses and roads</h4>${layerRow("buses","Live buses",lv.buses)}${layerRow("closures","Road closures",lv.closures)}${layerRow("snow","Sidewalk snow clearing",lv.snow)}` : ""}
-    <h4>Trip</h4>${layerRow("walk","10-minute walk area around the start",S.showWalk)}
     <h4>Places</h4>${D.hill ? layerRow("hills","Hills",SHOWP.has("hills"),HILL_ICO) : ""}${PLACES.map(([key,label,,cat]) => layerRow(key, label, SHOWP.has(key), iconSVG(cat==="community"?"library":cat, CAT[cat].color, 18))).join("")}
   </div>`; }
 function setLayer(k, on){ const lv = typeof LV!=="undefined" ? LV.show : null;
-  if(k==="walk") S.showWalk = on;
-  else if(lv && k in lv){ lv[k]=on; if(k==="snow" && on && !LV.snow) loadSnow(); drawBuses(); }
+  if(lv && k in lv){ lv[k]=on; if(k==="snow" && on && !LV.snow) loadSnow(); drawBuses(); }
   else on ? SHOWP.add(k) : SHOWP.delete(k);
   updateLegend(); base.draw(); redraw(); }
 function ring(ctx,x,y,r,col,C){ ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fillStyle=C.panel; ctx.fill(); ctx.lineWidth=Math.max(2.5, r*.45); ctx.strokeStyle=col; ctx.stroke(); }
@@ -1293,7 +1282,6 @@ function drawStops(ctx,X,Y,z,size,C,F){
 const Legend = L.Control.extend({ options:{position:"bottomright"}, onAdd(){ this._d=L.DomUtil.create("div","legend"); L.DomEvent.disableClickPropagation(this._d); return this._d; },
   set(html){ this._d.innerHTML = html + snowLegend(); this._d.style.display = this._d.innerHTML.trim() ? "" : "none"; } });
 function updateLegend(){ if(!legend) return;
-  if(showWalkArea()){ const bands=bandsFor(WALK_AREA); legend.set(`<b>Walking time, minutes</b><div class="ramp">${bands.map(([lo,hi,c])=>`<i style="background:${c};flex:${hi-lo}"></i>`).join("")}</div><div class="ticks">${[0,...bands.map(b=>b[1])].map(t=>`<span>${t}</span>`).join("")}</div>`); return; }
   const o = S.tab==="plan" && S.opts && S.opts[S.opt];
   if(o && D.eup){ const has = [0,0,0]; for(const l of o.legs) if(l.sg) for(const g of l.sg) has[slopeCls(g)] = 1;
     if(has[1] || has[2]){ const row = (c, t) => `<div class="sl"><i style="background:${c}"></i>${t}</div>`;
