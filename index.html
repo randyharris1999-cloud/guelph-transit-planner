@@ -1695,10 +1695,23 @@ const LIVE = window.GUELPH_LIVE || null;
 const CITY_API = "https://gismaps.guelph.ca/hosting/rest/services/";
 const WARN_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20z" fill="var(--warn)"/><path d="M12 9.5v5 M12 17.4v.1" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 const LV = { veh:[], tu:new Map(), alerts:[], closures:[], snow:null, st:{}, show:{buses:true, closures:true, snow:false}, markers:new Map(), layer:null };
-const todayMidnight = () => { const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()/1000; };
+/* Service day: Guelph Transit's day runs past midnight (Friday's last buses are timetabled as 24:45, 25:30... until
+   about 3am). Until the previous day's last bus has finished, keep that day's schedule and count the clock past 24:00,
+   so trips, departures, predictions and live buses all use the buses that are actually running. */
+const dayTypeOf = w => w===0? "sunday" : w===6? "saturday" : "weekday";
+const _svcEnd = {};
+function svcEnd(k){ if(_svcEnd[k] != null) return _svcEnd[k]; const c = D && D.days && D.days[k] && D.days[k].c; if(!c) return 0;
+  let m = 0; for(let i=1;i<c.length;i+=5) if(c[i] > m) m = c[i]; return _svcEnd[k] = m; }
+// a service day's times count from noon minus 12 hours (the GTFS rule), which stays right on daylight-saving nights
+const svcZero = (y, m, d) => new Date(y, m, d, 12).getTime()/1000 - 43200;
+function svcNow(){ const d=new Date(), y=d.getFullYear(), mo=d.getMonth(), da=d.getDate(), mid=svcZero(y, mo, da);
+  const pd=new Date(y, mo, da-1), pk=dayTypeOf(pd.getDay()), pmid=svcZero(y, mo, da-1);
+  if(Date.now()/1000 - pmid <= svcEnd(pk)) return {mid: pmid, type: pk};
+  return {mid, type: dayTypeOf(d.getDay())}; }
+const todayMidnight = () => svcNow().mid;
 const nowSec = () => Math.floor(Date.now()/1000 - todayMidnight());
-const todayType = () => { const w=new Date().getDay(); return w===0? "sunday" : w===6? "saturday" : "weekday"; };
-function svcMidnight(ymd){ if(!ymd || ymd.length!==8) return todayMidnight(); return new Date(+ymd.slice(0,4), +ymd.slice(4,6)-1, +ymd.slice(6)).getTime()/1000; }
+const todayType = () => svcNow().type;
+function svcMidnight(ymd){ if(!ymd || ymd.length!==8) return todayMidnight(); return svcZero(+ymd.slice(0,4), +ymd.slice(4,6)-1, +ymd.slice(6)); }
 const _tripIdx = {}, _sched = {};
 function tripIndex(dayKey){ return _tripIdx[dayKey] || (_tripIdx[dayKey] = new Map(D.days[dayKey].ids.map((id,i) => [id,i]))); }
 function tripSched(dayKey){ if(_sched[dayKey]) return _sched[dayKey]; const c=D.days[dayKey].c, m=new Map();
