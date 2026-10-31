@@ -47,18 +47,13 @@ function sprite(g, color, px, square=false){ const key=g+color+px+square; let c=
   _sprites.set(key,c); return c; }
 const glyphFor = (cat, it) => cat==="community" && it && it.extra==="Library" ? "library" : cat;
 const OSM_CATS = ["grocery","pharmacy","health","food","playground"];
-const BUS_W = 20, TREE_W = 3;
 // travel-time colours by absolute minutes, the same in every view
 const TBANDS = [[0,5,"#00729E"],[5,10,"#00A6E5"],[10,15,"#85B24A"],[15,20,"#C3BE45"],[20,30,"#E9A94E"],[30,45,"#E5794A"],[45,60,"#C9504A"]];  // City blue -> City green -> warm
-const SCORE_RAMP = ["#B8432F","#E07B39","#E9C46A","#8AB17D","#2A9D8F","#0B6E69"];
-const lin = (t, f, z) => t <= f ? 1 : t >= z ? 0 : (z - t) / (z - f);
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmtT = s => { s = Math.round(s/60)*60; let h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); const ap = h % 24 >= 12 ? "pm" : "am"; h = h % 12 || 12; return h + ":" + String(m).padStart(2, "0") + ap; };
 const mercX = lon => (lon + 180) / 360;
 const mercY = lat => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
-function gradeOf(s){ return s>=85?["Walker's paradise",SCORE_RAMP[5]]:s>=70?["Very walkable",SCORE_RAMP[4]]:s>=50?["Somewhat walkable",SCORE_RAMP[3]]:s>=30?["Car helpful",SCORE_RAMP[1]]:["Car dependent",SCORE_RAMP[0]]; }
-function scoreColor(s){ return SCORE_RAMP[Math.min(5, Math.floor(s / 100 * 6))]; }
 
 /* ---------- min-heap ---------- */
 class Heap{ constructor(){this.k=[];this.v=[];}

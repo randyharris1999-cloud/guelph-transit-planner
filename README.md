@@ -8,22 +8,27 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - Start and destination: type an address, a place (library, park, restaurant, grocery store, clinic…), or a stop number, use your location, or just tap the map: once for the start, once for the destination. Drag either pin to fine-tune it. The pin button in the destination box lets you re-pick the destination on the map.
 - Leave now (with live arrival predictions) or leave at a chosen day and time.
 - Up to three trip options plus walking, with step-by-step legs, the stops on each ride, transfers, and live delays.
-- Tap any step of a trip (a walk, a ride, a transfer, or the arrival) to zoom the map to that part and highlight it. Tap it again to see the whole trip.
+- Tap any step of a trip (a walk, a ride, a transfer, or the arrival) to zoom the map as close as it can while showing both ends of that step. Each end is marked and labelled (Start, Board 99 · Platform 7, Get off, Destination). Tap the step again to see the whole trip.
+- Walks are drawn as dots along the sidewalks, paths and streets, coloured by slope from the LIDAR: dark under 5%, orange 5–8%, red 8% or more. A legend appears when a trip has moderate or steep stretches, and each walking step lists its climb, drop and steepest stretch.
+- "Find bus" on a trip option shows its first bus on the map.
 - A 10-minute walk area around the start, coloured by walking time (0–5 and 5–10 minutes) the same way as 15-Minute Guelph, with the next buses from every stop in it.
 
 **Routes**
 - Every route as a colour-coded number, with a count of its buses on the road right now.
 - Pick one to see each direction, how often it runs right now, first and last bus, its stops in order with the next bus at each, live buses on it, and its service alerts.
+- Tap "On the road" to zoom to a bus on that route and the stop it's approaching. With several buses, each tap moves to the next one.
 
 **Stops**
 - Search by stop number or name, see stops near you or the map centre, or tap any stop on the map.
 - Next buses in the next 90 minutes with live delays, routes serving the stop, alerts, and "Trip from here / to here."
+- "Find bus" on each departure zooms to that bus and this stop together (once the bus has started that trip).
 
 **Map**
 - The 15-Minute Guelph basemap: building footprints, rivers and creeks, parks, trails, street trees and street names, all drawn from City data (no tile server).
-- Live buses from 15-Minute Guelph: route-coloured, animated along their routes between GPS updates, updated every 15 seconds. Tap a bus to see its next stops.
+- Live buses from 15-Minute Guelph: route-coloured, animated along their routes between GPS updates, updated every 15 seconds. Tap a bus to see its next stops. The stop it's approaching pulses with a "Next stop" label.
 - All routes are drawn faded. A route only stands out when it's part of the trip you planned, or the stop, bus or route you selected.
 - Place layers you can switch on and off along the top: food and drink, groceries, pharmacies, clinics and hospitals, libraries and rec centres, schools, playgrounds, restrooms, community gardens and AEDs. Tap one for its closest bus stops and "Go here."
+- Platform numbers at University Centre and Guelph Central Station from zoom 17, written out in full from zoom 18.
 - Hills: soft shaded relief from the LIDAR ground model, on by default (the Hills chip turns it off). It fades as you zoom in close.
 - Optional live City layers: road closures and sidewalk snow clearing.
 
@@ -82,7 +87,7 @@ Then, from this folder: `python scripts/build_elev.py "path/to/guelph_dem_6m_385
 
 ## How trips are found
 
-Walking follows Guelph's streets, sidewalks and trails at 4.8 km/h on flat ground, adjusted for hills: uphill is slower and a gentle downhill slightly faster (Tobler's hiking function, with the downhill gain capped at 10%). Walking steps show the climb when a walk goes up or down 5 m or more. Walks to or from a bus can be up to 15 minutes. Bus legs use a connection scan over the full Guelph Transit timetable, with walking transfers between nearby stops. A trip leaves you a minute to spare at the first stop. Options are kept only if they beat walking and aren't beaten by another option that leaves later and arrives as early.
+Walking follows Guelph's streets, sidewalks and trails at 4.8 km/h on flat ground, adjusted for hills: uphill is slower and a gentle downhill slightly faster (Tobler's hiking function, with the downhill gain capped at 10%), so the quickest walk is found with the hills counted. Starts, destinations and stops join the walking network at the closest point on the nearest path, not the nearest junction. Walking steps show the climb when a walk goes up or down 5 m or more, and the steepest stretch when it's 5% or more. Walks to or from a bus can be up to 15 minutes. Bus legs use a connection scan over the full Guelph Transit timetable, with walking transfers between nearby stops. A trip leaves you a minute to spare at the first stop. Options are kept only if they beat walking and aren't beaten by another option that leaves later and arrives as early.
 
 ## Data
 

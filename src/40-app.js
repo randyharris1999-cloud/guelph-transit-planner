@@ -217,13 +217,13 @@ function walkLine(T, P, Q){ const pin = o => [mercX(o.lon), mercY(o.lat)], sp=sn
     const direct = sp.conn + sq.conn + Math.abs(sp.f-sq.f)*D.el[sp.e];
     if(direct <= (T.reverse ? walkCost(T, P) : walkCost(T, Q)) + 1){ pieces = [{e:-1, pts:[pin(P), [sp.mx,sp.my]]}, {e:sp.e, ab:fwd, frac:Math.abs(sp.f-sq.f), pts:[[sp.mx,sp.my], ...g, [sq.mx,sq.my]]}, {e:-1, pts:[[sq.mx,sq.my], pin(Q)]}]; len = direct; } }
   if(!pieces){ const far = T.reverse ? P : Q, near = T.reverse ? Q : P, r = reachOf(T, far), root = rootOf(T, r.n), sn = snapOf(near), sf = snapOf(far);
-    const st = treeStats(T, r.n), rootSide = D.ea[sn.e]===root ? "a" : "b";
+    const rootSide = D.ea[sn.e]===root ? "a" : "b";
     // near spot -> root end of its edge, the tree path, far end -> far spot (all in tree order: near -> far)
     const nearPc = {e:sn.e, ab: rootSide!=="a", frac: rootSide==="a" ? sn.f : 1-sn.f, pts: partial(sn, rootSide).reverse()}, farPc = {e:sf.e, ab: r.side==="a", frac: r.side==="a" ? sf.f : 1-sf.f, pts: partial(sf, r.side)};
     pieces = [{e:-1, pts:[pin(near), [sn.mx,sn.my]]}, nearPc, ...treeChain(T, r.n), farPc, {e:-1, pts:[[sf.mx,sf.my], pin(far)]}];
     // a reverse tree is walked towards its root: turn the whole thing around
     if(T.reverse){ pieces = pieces.reverse().map(pc => pc.e<0 ? {e:-1, pts:pc.pts.slice().reverse()} : flip(pc)); }
-    len = st.len + sn.conn + sf.conn + D.el[sn.e]*(rootSide==="a" ? sn.f : 1-sn.f) + D.el[sf.e]*(r.side==="a" ? sf.f : 1-sf.f); }
+    len = treeStats(T, r.n).len + sn.conn + sf.conn + D.el[sn.e]*(rootSide==="a" ? sn.f : 1-sn.f) + D.el[sf.e]*(r.side==="a" ? sf.f : 1-sf.f); }
   // flatten, with a slope per segment; note the steepest stretches worth mentioning (at least 12 m long)
   const pts=[], sg=[]; let steepUp=0, steepDn=0;
   for(const pc of pieces){ const sl = pc.e>=0 ? edgeSlope(pc.e, pc.ab) : 0;
@@ -276,13 +276,6 @@ function searchAll(q, {stops=true, places=true, addresses=true}={}){
   return out; }
 
 /* ---------- trip planner: walk + connection scan ---------- */
-function treePath(tree, node){ const pts=[]; let u=node, guard=0;
-  pts.push([D.nmx[u], D.nmy[u]]);
-  while(guard++<20000){ const e=tree.pred[u]; if(e<0) break; const a=D.ea[e], b=D.eb[e], from=(a===u)? b : a;
-    const seg=[]; for(let k=D.eoff[e];k<D.eoff[e+1];k++) seg.push([D.gx[k],D.gy[k]]); if(a!==u) seg.reverse();   // u -> from
-    for(let j=1;j<seg.length;j++) pts.push(seg[j]); u=from; }
-  return pts.reverse(); }   // root -> node
-const llM = ep => [mercX(ep.lon), mercY(ep.lat)];
 function scan(A, B, day, t0, dA, dB){
   const d=D.days[day], c=d.c, ns=D.stops.length, ea=new Float64Array(ns).fill(Infinity), jp=new Array(ns), tb=new Int32Array(d.trips.length).fill(-1), egress=new Float64Array(ns);
   D.stops.forEach((s,si) => { const w=walkCost(dA, s); if(w<=MAXW){ ea[si]=t0 + w/WALK*60; jp[si]={w}; } egress[si]=walkCost(dB, s); });
