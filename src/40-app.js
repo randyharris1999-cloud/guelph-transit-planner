@@ -46,7 +46,7 @@ function hillCanvas(dark){ const key = dark ? "d" : "l"; if(HILL.cv && _hillKey=
 function drawHills(ctx,X,Y,z){ if(!HILL || !SHOWP.has("hills")) return; const [w,s,e,n] = D.hill.bounds;
   const x0=X(mercX(w)), x1=X(mercX(e)), y0=Y(mercY(n)), y1=Y(mercY(s));
   ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.globalAlpha = z>=17 ? .35 : z>=16 ? .55 : z>=15 ? .8 : 1;
-  ctx.drawImage(hillCanvas(matchMedia("(prefers-color-scheme: dark)").matches), x0, y0, x1-x0, y1-y0); ctx.restore(); }
+  ctx.drawImage(hillCanvas(isDark()), x0, y0, x1-x0, y1-y0); ctx.restore(); }
 function decode(){
   const g = D.graph; const N = g.nodes.length / 2; D.N = N;
   D.nlon = new Float64Array(N); D.nlat = new Float64Array(N); D.nmx = new Float64Array(N); D.nmy = new Float64Array(N);
@@ -359,7 +359,7 @@ function lineP(ctx,X,Y,pts){ if(!pts.length) return; ctx.moveTo(X(pts[0][0]),Y(p
 function cased(ctx, w, col, C, alpha=1){ ctx.strokeStyle=C.panel; ctx.lineWidth=w+3; ctx.globalAlpha=alpha; ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=w; ctx.stroke(); ctx.globalAlpha=1; }
 function routeGis(ri, head, day){ const d=D.days[day], s=new Set(); d.trips.forEach((r,ti) => { if(r===ri && (head==null || d.head[ti]===head) && d.shape && d.shape[ti]!=null) s.add(d.shape[ti]); }); return [...s]; }
 function drawAll(ctx,X,Y,z,size){
-  const C = drawBase(ctx,X,Y,z,size), sc = Math.pow(2, z-15), dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const C = drawBase(ctx,X,Y,z,size), sc = Math.pow(2, z-15), dark = isDark();
   const F = focus(), day = liveDay();
   // every route, faded
   ctx.lineCap="round"; ctx.lineJoin="round";
@@ -937,7 +937,7 @@ async function boot(){
       if(b.dataset.m==="stops"){ S.stop=null; map.panTo(e.latlng); setTab("stops"); setTimeout(renderStop, 300); return; }
       if(S.tab!=="plan") setTab("plan"); setEnd(b.dataset.m, ep); }); });
   map.on("moveend", () => { if(S.tab==="stops" && S.stop==null && !$("stopQ").value) renderStop(); renderNear(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => base.draw());
+  SKY.onChange(() => base.draw()); $("skyBtn").addEventListener("click", () => SKY.cycle());
   // every open starts with an empty trip: clear anything the browser put back in the boxes
   $("fromQ").value = ""; $("toQ").value = "";
   // deep links: ?from=&to=&route=&stop=&tab=

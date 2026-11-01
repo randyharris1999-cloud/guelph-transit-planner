@@ -32,6 +32,13 @@ Plan a bus trip, look up any route or stop, and watch Guelph Transit's buses mov
 - Hills: soft shaded relief from the LIDAR ground model, on by default (the Hills chip turns it off). It fades as you zoom in close.
 - Live status is one line under the panel ("Live · 50 buses · updated 11:47"); Details shows each feed.
 
+**Look: day, sunset and night**
+- A clean, sharp design: white panels, cool greys, charcoal text, electric blue and teal accents, and geometric type (Outfit, Plus Jakarta Sans, JetBrains Mono for times).
+- Arrival times show as countdown badges ("in 11 min"); a bus that's due turns the badge solid blue with a blinking dot.
+- The look follows the sun over Guelph, worked out in the app each day: **Day**, then **Sunset** from 20 minutes before sundown until the end of twilight, then **Night**. Mornings run the other way. The change fades in.
+- The chip beside the title shows the look and the next change ("Day · Sunset 5:14 pm"). Tap it to cycle Auto → Day → Night; the choice is remembered on that device.
+- Testing: add `?sky=day`, `?sky=dusk` or `?sky=night` to the address to force a look.
+
 **Opening and installing**
 - The map opens on downtown at street scale.
 - While the map and bus schedule download (about 12 MB), a loading screen shows the app's name and a progress bar. It disappears the moment the data is ready, and offers "Try again" if the download fails.
@@ -47,13 +54,14 @@ The start and destination boxes are empty every time the page opens. That includ
 | `config.js` | Live-data setting: the relay address |
 | `gtfsrt.js` | Reads Guelph Transit's GTFS-realtime feed format in the browser |
 | `leaflet.min.js` | Leaflet 1.9.4 map library |
+| `fonts/` | Outfit, Plus Jakarta Sans and JetBrains Mono, hosted with the app (SIL Open Font Licence; licence files included) |
 | `icon.svg` | Browser tab icon |
 | `manifest.webmanifest` | Home-screen app settings: name, colours, icons |
 | `icons/` | App icons and iPhone launch images, made by `scripts/build_icons.py` |
 | `data/` | Walking network, addresses, places, buildings, water, street names, trees and the bus schedule (same files as 15-Minute Guelph) |
 | `data/elev.json`, `data/hillshade.jpg` | Hills from LIDAR: walking cost and climb for every path, each direction, and the shaded relief image |
 | `data/realtime/` | Saved feed snapshot used only by preview mode |
-| `src/` | App source in numbered parts (styles, layout, map, planner, live buses) |
+| `src/` | App source in numbered parts (styles, layout, day/sunset/night looks in `12-sky.js`, map, planner, live buses) |
 | `scripts/build_html.py` | Joins `src/` into `index.html`, adds the home-screen tags and the data sizes for the progress bar |
 | `scripts/build_icons.py` | Makes `icons/` and `manifest.webmanifest` (needs Playwright) |
 | `scripts/build_elev.py` | Builds the hill files from the LIDAR elevation grid |
